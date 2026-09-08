@@ -1,0 +1,1192 @@
+package asiacell
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+)
+
+
+func (c *Client) RechargeVoucher(ctx context.Context, phone, voucher string, rechargeType RechargeType) (*RechargeResponse, error) {
+	reqBody := RechargeRequest{
+		MSISDN:       phone,
+		RechargeType: rechargeType,
+		Voucher:      voucher,
+	}
+
+	payload, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling recharge request: %w", err)
+	}
+
+	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/top-up?lang=%s", c.language), bytes.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("executing recharge request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var recResp RechargeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&recResp); err != nil {
+		return nil, fmt.Errorf("decoding recharge response: %w", err)
+	}
+
+	if !recResp.Success {
+		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, recResp.Message)
+	}
+
+	return &recResp, nil
+}
+
+func (c *Client) StartCreditTransfer(ctx context.Context, receiverPhone string, amount float64) (string, error) {
+	reqBody := CreditTransferStartRequest{
+		Amount:         amount,
+		ReceiverMSISDN: receiverPhone,
+	}
+
+	payload, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("marshaling transfer start request: %w", err)
+	}
+
+	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/credit-transfer/start?lang=%s", c.language), bytes.NewReader(payload))
+	if err != nil {
+		return "", fmt.Errorf("executing transfer start request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return "", ErrUnauthorized
+	}
+
+	var startResp CreditTransferStartResponse
+	if err := json.NewDecoder(resp.Body).Decode(&startResp); err != nil {
+		return "", fmt.Errorf("decoding transfer start response: %w", err)
+	}
+
+	if !startResp.Success {
+		return "", fmt.Errorf("%w: %s", ErrRequestFailed, startResp.Message)
+	}
+
+	if startResp.PID == "" {
+		return "", ErrMissingPID
+	}
+
+	return string(startResp.PID), nil
+}
+
+func (c *Client) ConfirmCreditTransfer(ctx context.Context, pid, passcode string) (*TransferConfirmation, error) {
+	reqBody := CreditTransferDoRequest{
+		PID:      pid,
+		Passcode: passcode,
+	}
+
+	payload, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling transfer confirm request: %w", err)
+	}
+
+	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/credit-transfer/do-transfer?lang=%s", c.language), bytes.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("executing transfer confirm request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var confirmResp TransferConfirmation
+	if err := json.NewDecoder(resp.Body).Decode(&confirmResp); err != nil {
+		return nil, fmt.Errorf("decoding transfer confirm response: %w", err)
+	}
+
+	if !confirmResp.Success {
+		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, confirmResp.Message)
+	}
+
+	return &confirmResp, nil
+}
+
+func cleanDigits(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
+	}
+	res := b.String()
+	if strings.HasPrefix(res, "964") {
+		res = "0" + strings.TrimPrefix(res, "964")
+	}
+	return res
+}
+
+func (c *Client) TransferToWallet(ctx context.Context, amount float64) (string, error) {
+	c.mu.RLock()
+	wallet := c.masterWallet
+	c.mu.RUnlock()
+
+	if wallet == "" {
+		return "", fmt.Errorf("%w: master wallet phone is not set", ErrRequestFailed)
+	}
+
+	return c.StartCreditTransfer(ctx, wallet, amount)
+}
+
+func (c *Client) VerifyTransferTo(ctx context.Context, targetPhone string, minAmount float64) (bool, *TransactionRecord, error) {
+	cleanTarget := cleanDigits(targetPhone)
+	if cleanTarget == "" {
+		return false, nil, fmt.Errorf("%w: invalid target phone", ErrRequestFailed)
+	}
+
+	records, err := c.GetTransferHistory(ctx)
+	if err != nil {
+		return false, nil, fmt.Errorf("fetching transfer history: %w", err)
+	}
+
+	for i := range records {
+		rec := &records[i]
+		cleanRecPhone := cleanDigits(string(rec.ReceiverMSISDN))
+		if cleanRecPhone == cleanTarget || strings.HasSuffix(cleanRecPhone, cleanTarget) || strings.HasSuffix(cleanTarget, cleanRecPhone) {
+			amtStr := string(rec.Amount)
+			if minAmount <= 0 {
+				return true, rec, nil
+			}
+			expectedAmt := fmt.Sprintf("%.0f", minAmount)
+			if strings.Contains(amtStr, expectedAmt) {
+				return true, rec, nil
+			}
+		}
+	}
+
+	return false, nil, nil
+}
+
+func (c *Client) VerifyIncomingTransfer(ctx context.Context, senderPhone string, minAmount float64) (bool, *TransactionRecord, error) {
+	cleanSender := cleanDigits(senderPhone)
+	if cleanSender == "" {
+		return false, nil, fmt.Errorf("%w: invalid sender phone", ErrRequestFailed)
+	}
+
+	c.mu.RLock()
+	incoming := make([]TransactionRecord, len(c.recordedIncomingTransfers))
+	copy(incoming, c.recordedIncomingTransfers)
+	c.mu.RUnlock()
+
+	for i := range incoming {
+		rec := &incoming[i]
+		cleanRecSender := cleanDigits(string(rec.MSISDN))
+		if cleanRecSender == cleanSender || strings.HasSuffix(cleanRecSender, cleanSender) || strings.HasSuffix(cleanSender, cleanRecSender) {
+			amtStr := string(rec.Amount)
+			if minAmount <= 0 {
+				return true, rec, nil
+			}
+			expectedAmt := fmt.Sprintf("%.0f", minAmount)
+			if strings.Contains(amtStr, expectedAmt) {
+				return true, rec, nil
+			}
+		}
+	}
+
+	histRecords, err := c.GetTransferHistory(ctx)
+	if err == nil {
+		for i := range histRecords {
+			rec := &histRecords[i]
+			cleanRecSender := cleanDigits(string(rec.MSISDN))
+			if cleanRecSender == cleanSender || strings.HasSuffix(cleanRecSender, cleanSender) || strings.HasSuffix(cleanSender, cleanRecSender) {
+				amtStr := string(rec.Amount)
+				if minAmount <= 0 {
+					return true, rec, nil
+				}
+				expectedAmt := fmt.Sprintf("%.0f", minAmount)
+				if strings.Contains(amtStr, expectedAmt) {
+					return true, rec, nil
+				}
+			}
+		}
+	}
+
+	return false, nil, nil
+}
+
+func (c *Client) GetRechargeHistory(ctx context.Context) ([]TransactionRecord, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/transaction/recharge?lang=%s", c.language), nil)
+	if err != nil {
+		c.mu.RLock()
+		records := make([]TransactionRecord, len(c.recordedRecharges))
+		copy(records, c.recordedRecharges)
+		c.mu.RUnlock()
+		return records, nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var histResp RechargeHistoryResponse
+	if err := json.NewDecoder(resp.Body).Decode(&histResp); err != nil {
+		c.mu.RLock()
+		records := make([]TransactionRecord, len(c.recordedRecharges))
+		copy(records, c.recordedRecharges)
+		c.mu.RUnlock()
+		return records, nil
+	}
+
+	if !histResp.Success {
+		c.mu.RLock()
+		records := make([]TransactionRecord, len(c.recordedRecharges))
+		copy(records, c.recordedRecharges)
+		c.mu.RUnlock()
+		return records, nil
+	}
+
+	c.mu.RLock()
+	all := append(histResp.Data, c.recordedRecharges...)
+	c.mu.RUnlock()
+	return all, nil
+}
+
+func (c *Client) GetTransferHistory(ctx context.Context) ([]TransactionRecord, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/transaction/transfer?lang=%s", c.language), nil)
+	if err != nil {
+		c.mu.RLock()
+		records := make([]TransactionRecord, len(c.recordedTransfers))
+		copy(records, c.recordedTransfers)
+		c.mu.RUnlock()
+		return records, nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var histResp TransferHistoryResponse
+	if err := json.NewDecoder(resp.Body).Decode(&histResp); err != nil {
+		c.mu.RLock()
+		records := make([]TransactionRecord, len(c.recordedTransfers))
+		copy(records, c.recordedTransfers)
+		c.mu.RUnlock()
+		return records, nil
+	}
+
+	if !histResp.Success {
+		c.mu.RLock()
+		records := make([]TransactionRecord, len(c.recordedTransfers))
+		copy(records, c.recordedTransfers)
+		c.mu.RUnlock()
+		return records, nil
+	}
+
+	c.mu.RLock()
+	all := append(histResp.Data, c.recordedTransfers...)
+	c.mu.RUnlock()
+	return all, nil
+}
+
+func (c *Client) GetSubscriptionHistory(ctx context.Context) ([]BundleRecord, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/transaction/bundle?lang=%s", c.language), nil)
+	if err != nil {
+		return nil, nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var bundleResp SubscriptionHistoryResponse
+	if err := json.NewDecoder(resp.Body).Decode(&bundleResp); err != nil {
+		return nil, nil
+	}
+
+	if !bundleResp.Success {
+		return nil, nil
+	}
+
+	return bundleResp.Data, nil
+}
+
+
+func (c *Client) GetSpinWheelStatus(ctx context.Context) (*SpinWheelStatusResponse, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v2/spinwheel/ui?lang=%s", c.language), nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting spinwheel status: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var statusResp SpinWheelStatusResponse
+	if err := json.NewDecoder(resp.Body).Decode(&statusResp); err != nil {
+		return nil, fmt.Errorf("decoding spinwheel status: %w", err)
+	}
+
+	if !statusResp.Success {
+		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, statusResp.Message)
+	}
+
+	return &statusResp, nil
+}
+
+func (c *Client) PlaySpinWheel(ctx context.Context) (*SpinWheelPlayResponse, error) {
+	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v2/spinwheel/confirm?lang=%s", c.language), strings.NewReader("{}"))
+	if err != nil {
+		return nil, fmt.Errorf("executing spinwheel confirm: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var playResp SpinWheelPlayResponse
+	if err := json.NewDecoder(resp.Body).Decode(&playResp); err != nil {
+		return nil, fmt.Errorf("decoding spinwheel confirm response: %w", err)
+	}
+
+	if !playResp.Success {
+		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, playResp.Message)
+	}
+
+	if playResp.Title == "" {
+		freeData := playResp.AnalyticData.Params["Free data received"]
+		if freeData != "" {
+			playResp.Title = "🎉 مبروك الفوز!"
+			playResp.Message = fmt.Sprintf("حصلت على %sMB إنترنت مجاني!", freeData)
+		} else {
+			playResp.Title = "🎉 مبروك!"
+			playResp.Message = playResp.Data
+		}
+	}
+
+	return &playResp, nil
+}
+
+func (c *Client) GetAddons(ctx context.Context) ([]AddonPackage, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/addon?lang=%s", c.language), nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting addons: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var addonResp AddonResponse
+	if err := json.NewDecoder(resp.Body).Decode(&addonResp); err != nil {
+		return nil, fmt.Errorf("decoding addons: %w", err)
+	}
+
+	var packages []AddonPackage
+	for _, group := range addonResp.Data.Bodies {
+		for _, item := range group.Items {
+			if item.Title != "" && item.Price != "" {
+				packages = append(packages, AddonPackage{
+					ID:             item.ID,
+					Title:          item.Title,
+					Volume:         item.Volume,
+					Validity:       item.Validity,
+					Price:          item.Price,
+					RelatedProduct: item.RelatedProduct,
+					Data:           item.Data,
+					Renewable:      item.Renewable,
+					FreeSocials:    item.FreeSocials,
+				})
+			}
+		}
+	}
+
+	return packages, nil
+}
+
+func (c *Client) GetSpecialOffers(ctx context.Context) ([]AddonPackage, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/addon?lang=%s", c.language), nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting special offers: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var addonResp AddonResponse
+	if err := json.NewDecoder(resp.Body).Decode(&addonResp); err != nil {
+		return nil, fmt.Errorf("decoding special offers: %w", err)
+	}
+
+	var packages []AddonPackage
+	for _, group := range addonResp.Data.Bodies {
+		if strings.Contains(group.Title, "عروض خاصة") || strings.Contains(group.Title, "خاصة") || group.GroupID == 15 {
+			for _, item := range group.Items {
+				if item.Title != "" && item.Price != "" {
+					idx := len(packages) + 1
+					packages = append(packages, AddonPackage{
+						Index:          idx,
+						ID:             item.ID,
+						Title:          item.Title,
+						Volume:         item.Volume,
+						Validity:       item.Validity,
+						Price:          item.Price,
+						RelatedProduct: item.RelatedProduct,
+						Data:           item.Data,
+						Renewable:      item.Renewable,
+						FreeSocials:    item.FreeSocials,
+						USSDCode:       fmt.Sprintf("*299*%d#", idx),
+						SMSCode:        strconv.Itoa(idx),
+					})
+				}
+			}
+		}
+	}
+
+	if len(packages) == 0 {
+		all, err := c.GetAddons(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for i := range all {
+			all[i].Index = i + 1
+			all[i].USSDCode = fmt.Sprintf("*299*%d#", i+1)
+			all[i].SMSCode = strconv.Itoa(i + 1)
+		}
+		return all, nil
+	}
+
+	return packages, nil
+}
+
+func (c *Client) GetAddonCategories(ctx context.Context) ([]AddonCategory, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/addon?lang=%s", c.language), nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting addon categories: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var addonResp AddonResponse
+	if err := json.NewDecoder(resp.Body).Decode(&addonResp); err != nil {
+		return nil, fmt.Errorf("decoding addon categories: %w", err)
+	}
+
+	var categories []AddonCategory
+	for _, group := range addonResp.Data.Bodies {
+		var pkgs []AddonPackage
+		for _, item := range group.Items {
+			if item.Title != "" {
+				pkgs = append(pkgs, AddonPackage{
+					ID:             item.ID,
+					Title:          item.Title,
+					Volume:         item.Volume,
+					Validity:       item.Validity,
+					Price:          item.Price,
+					RelatedProduct: item.RelatedProduct,
+					Data:           item.Data,
+					Renewable:      item.Renewable,
+					FreeSocials:    item.FreeSocials,
+				})
+			}
+		}
+		if len(pkgs) > 0 {
+			categories = append(categories, AddonCategory{
+				GroupID: group.GroupID,
+				Type:    group.Type,
+				Title:   group.Title,
+				Items:   pkgs,
+			})
+		}
+	}
+
+	return categories, nil
+}
+
+func (c *Client) GetAddonDetail(ctx context.Context, itemID int) (*AddonDetailData, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/addon/%d?lang=%s", itemID, c.language), nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting addon detail: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var detailResp AddonDetailResponse
+	if err := json.NewDecoder(resp.Body).Decode(&detailResp); err != nil {
+		return nil, fmt.Errorf("decoding addon detail: %w", err)
+	}
+
+	if !detailResp.Success {
+		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, detailResp.Message)
+	}
+
+	return &detailResp.Data, nil
+}
+
+func (c *Client) SubscribeSpecialOffer(ctx context.Context, offerIndex int) (*SubscriptionResult, error) {
+	offers, err := c.GetSpecialOffers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fetching offers: %w", err)
+	}
+
+	if offerIndex < 1 || offerIndex > len(offers) {
+		return nil, fmt.Errorf("invalid offer index: %d (available: 1 to %d)", offerIndex, len(offers))
+	}
+
+	target := offers[offerIndex-1]
+	ussdCmd := fmt.Sprintf("*299*%d#", offerIndex)
+	smsCmd := strconv.Itoa(offerIndex)
+
+	return &SubscriptionResult{
+		Success:     true,
+		PackageID:   target.ID,
+		Title:       target.Title,
+		Price:       target.Price,
+		USSDCommand: ussdCmd,
+		SMSCommand:  smsCmd,
+		Message:     fmt.Sprintf("للاشتراك المباشر في %s: اطلب %s أو أرسل %s إلى 299", target.Title, ussdCmd, smsCmd),
+	}, nil
+}
+
+func (c *Client) CancelSpecialOffer(ctx context.Context) (*SubscriptionResult, error) {
+	return &SubscriptionResult{
+		Success:     true,
+		Title:       "إلغاء الاشتراك في باقات عروضي",
+		USSDCommand: "*299*0#",
+		SMSCommand:  "0 إلى 299",
+		Message:     "لإلغاء باقة عروضي: اطلب *299*0# أو أرسل 0 إلى الرقم 299",
+	}, nil
+}
+
+func (c *Client) GetNotifications(ctx context.Context) ([]NotificationItem, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/notifications?lang=%s", c.language), nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting notifications: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var notifResp NotificationsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&notifResp); err != nil {
+		return nil, fmt.Errorf("decoding notifications: %w", err)
+	}
+
+	return notifResp.Data, nil
+}
+
+func (c *Client) GetShukranInfo(ctx context.Context) (*ShukranData, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/shukran?lang=%s", c.language), nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting shukran info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var shukranResp ShukranResponse
+	if err := json.NewDecoder(resp.Body).Decode(&shukranResp); err != nil {
+		return nil, fmt.Errorf("decoding shukran info: %w", err)
+	}
+
+	return &shukranResp.Data, nil
+}
+
+func (c *Client) RequestShukranCredit(ctx context.Context) (*ShukranActionResponse, error) {
+	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/shukran/action?actionName=requestCredit&lang=%s", c.language), strings.NewReader("{}"))
+	if err != nil {
+		return nil, fmt.Errorf("requesting shukran credit: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var actionResp ShukranActionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&actionResp); err != nil {
+		return nil, fmt.Errorf("decoding shukran response: %w", err)
+	}
+
+	return &actionResp, nil
+}
+
+func (c *Client) RequestShukranInternet(ctx context.Context) (*ShukranActionResponse, error) {
+	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/shukran/action?actionName=requestInternet&lang=%s", c.language), strings.NewReader("{}"))
+	if err != nil {
+		return nil, fmt.Errorf("requesting shukran internet: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var actionResp ShukranActionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&actionResp); err != nil {
+		return nil, fmt.Errorf("decoding shukran response: %w", err)
+	}
+
+	return &actionResp, nil
+}
+
+func (c *Client) GetRoamingInfo(ctx context.Context) (*RoamingData, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/roaming?lang=%s", c.language), nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting roaming info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var roamResp RoamingResponse
+	if err := json.NewDecoder(resp.Body).Decode(&roamResp); err != nil {
+		return nil, fmt.Errorf("decoding roaming info: %w", err)
+	}
+
+	return &roamResp.Data, nil
+}
+
+func (c *Client) GetPromotions(ctx context.Context) ([]PromotionItem, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/promotions?lang=%s", c.language), nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting promotions: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var promoResp PromotionsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&promoResp); err != nil {
+		return nil, fmt.Errorf("decoding promotions: %w", err)
+	}
+
+	var items []PromotionItem
+	for _, body := range promoResp.Data.Bodies {
+		items = append(items, body.Items...)
+	}
+
+	return items, nil
+}
+
+func (c *Client) CheckSpinWheel(ctx context.Context) (*SpinWheelCheckResponse, error) {
+	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v2/spinwheel/check?lang=%s", c.language), strings.NewReader("{}"))
+	if err != nil {
+		return nil, fmt.Errorf("checking spinwheel: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var checkResp SpinWheelCheckResponse
+	if err := json.NewDecoder(resp.Body).Decode(&checkResp); err != nil {
+		return nil, fmt.Errorf("decoding spinwheel check: %w", err)
+	}
+
+	return &checkResp, nil
+}
+
+func (c *Client) GetProfileView(ctx context.Context) (*ProfileViewData, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/profile/view?lang=%s", c.language), nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting profile view: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var pvResp ProfileViewResponse
+	if err := json.NewDecoder(resp.Body).Decode(&pvResp); err != nil {
+		return nil, fmt.Errorf("decoding profile view: %w", err)
+	}
+
+	return &pvResp.Data, nil
+}
+
+func (c *Client) GetProfileV2(ctx context.Context) (*ProfileV2Data, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v2/profile?lang=%s", c.language), nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting profile v2: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var pv2Resp ProfileV2Response
+	if err := json.NewDecoder(resp.Body).Decode(&pv2Resp); err != nil {
+		return nil, fmt.Errorf("decoding profile v2: %w", err)
+	}
+
+	return &pv2Resp.Data, nil
+}
+
+func (c *Client) GetProfileImage(ctx context.Context, pathOrURL string) ([]byte, error) {
+	reqPath := strings.TrimPrefix(pathOrURL, "https://odpapp.asiacell.com")
+	if !strings.HasPrefix(reqPath, "/") {
+		reqPath = "/" + reqPath
+	}
+
+	resp, err := c.doRequest(ctx, http.MethodGet, reqPath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting profile image: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
+func (c *Client) ExportSession() (*SessionData, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.accessToken == "" {
+		return nil, ErrUnauthorized
+	}
+
+	return &SessionData{
+		AccessToken:    c.accessToken,
+		RefreshToken:   c.refreshToken,
+		HandshakeToken: c.handshakeToken,
+		UserID:         FlexString(c.userID),
+		Username:       c.username,
+		DeviceID:       c.deviceID,
+		Language:       c.language,
+		LastRefresh:    c.lastRefresh,
+	}, nil
+}
+
+func (c *Client) ImportSession(data *SessionData) error {
+	if data == nil || data.AccessToken == "" {
+		return ErrUnauthorized
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.accessToken = data.AccessToken
+	c.refreshToken = data.RefreshToken
+	c.handshakeToken = data.HandshakeToken
+	c.userID = string(data.UserID)
+	c.username = data.Username
+	c.lastRefresh = data.LastRefresh
+	if c.lastRefresh.IsZero() {
+		c.lastRefresh = time.Now()
+	}
+
+	if data.DeviceID != "" {
+		c.deviceID = data.DeviceID
+	}
+	if data.Language != "" {
+		c.language = data.Language
+	}
+
+	return nil
+}
+
+func (c *Client) SaveSession(w io.Writer) error {
+	data, err := c.ExportSession()
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(w).Encode(data)
+}
+
+func (c *Client) LoadSession(r io.Reader) error {
+	var data SessionData
+	if err := json.NewDecoder(r).Decode(&data); err != nil {
+		return fmt.Errorf("decoding session data: %w", err)
+	}
+	return c.ImportSession(&data)
+}
+
+func (c *Client) SaveSessionToFile(filePath string) error {
+	data, err := c.ExportSession()
+	if err != nil {
+		return err
+	}
+
+	dir := filepath.Dir(filePath)
+	if dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("creating session directory: %w", err)
+		}
+	}
+
+	raw, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshaling session data: %w", err)
+	}
+
+	tmpFile := fmt.Sprintf("%s.tmp.%d", filePath, time.Now().UnixNano())
+	if err := os.WriteFile(tmpFile, raw, 0600); err != nil {
+		return fmt.Errorf("writing session file: %w", err)
+	}
+
+	if err := os.Rename(tmpFile, filePath); err != nil {
+		_ = os.Remove(tmpFile)
+		return fmt.Errorf("renaming session file: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Client) LoadSessionFromFile(filePath string) error {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("reading session file: %w", err)
+	}
+
+	var sess SessionData
+	if err := json.Unmarshal(data, &sess); err != nil {
+		return fmt.Errorf("unmarshaling session data: %w", err)
+	}
+
+	return c.ImportSession(&sess)
+}
+
+func (c *Client) AutoRefreshToken(ctx context.Context) error {
+	c.mu.RLock()
+	refToken := c.refreshToken
+	lastRef := c.lastRefresh
+	c.mu.RUnlock()
+
+	if refToken == "" {
+		return ErrUnauthorized
+	}
+
+	if !lastRef.IsZero() && time.Since(lastRef) < 15*time.Minute {
+		return nil
+	}
+
+	return c.RefreshToken(ctx)
+}
+
+func (c *Client) GetServicesManagement(ctx context.Context) (*ServicesManagementOverview, error) {
+	activeBundles, _ := c.GetActiveBundles(ctx)
+
+	cancellations := []ServiceCancellationInfo{
+		{
+			ID:          "stop_payg_data",
+			Title:       "إيقاف استهلاك الإنترنت من الرصيد (حماية الرصيد)",
+			Code:        "*223# أو الاتصال بـ 111",
+			Method:      "USSD / خدمة المشتركين",
+			Description: "لمنع استقطاع الرصيد المباشر عند فتح بيانات الهاتف بعد انتهاء الباقة: اتصل على *223# للتحكم بخط الإنترنت أو اتصل بـ 111 لطلب تفعيل ميزة إيقاف الإنترنت خارج الباقة.",
+			Actions: []ServiceActionItem{
+				{Title: "📞 كود التحكم بالإنترنت (*223#)", Type: "ussd", Value: "*223#"},
+				{Title: "📞 الاتصال بمركز الخدمة (111)", Type: "call", Value: "111"},
+				{Title: "💬 واتساب الدعم الفني", Type: "url", Value: "+9647701111111", URL: "https://wa.me/9647701111111"},
+			},
+		},
+		{
+			ID:          "stop_bundle_renew",
+			Title:       "إلغاء التجديد التلقائي لباقات الإنترنت",
+			Code:        "إرسال 0 إلى 299 أو 3076",
+			Method:      "SMS",
+			Description: "لإلغاء تجديد باقات الإنترنت وعروض 299 التلقائية ومنع خصم الرصيد عند انتهائها.",
+			Actions: []ServiceActionItem{
+				{Title: "📱 إرسال 0 إلى 299 (عروضي)", Type: "sms", Value: "299:0"},
+				{Title: "📱 إرسال 0 إلى 3076 (الإنترنت)", Type: "sms", Value: "3076:0"},
+				{Title: "📞 إلغاء عبر الكود (*299*0#)", Type: "ussd", Value: "*299*0#"},
+			},
+		},
+		{
+			ID:          "stop_ads",
+			Title:       "إلغاء الرسائل الإعلانية والدعائية",
+			Code:        "إرسال 0 إلى 4151",
+			Method:      "SMS (مجاناً)",
+			Description: "لإيقاف استلام كافة الرسائل الإعلانية والترويجية من الشركات والمتاجر.",
+			Actions: []ServiceActionItem{
+				{Title: "📱 إرسال 0 إلى 4151 (مجاناً)", Type: "sms", Value: "4151:0"},
+			},
+		},
+		{
+			ID:          "stop_melody",
+			Title:       "إلغاء نغمات ميلودي (رنات المتصل)",
+			Code:        "إرسال 2 إلى 300",
+			Method:      "SMS",
+			Description: "لإلغاء الاشتراك بنغمات رنين المتصل ومنع الاستقطاع الدوري.",
+			Actions: []ServiceActionItem{
+				{Title: "📱 إرسال 2 إلى 300", Type: "sms", Value: "300:2"},
+			},
+		},
+		{
+			ID:          "cancel_call_forwarding",
+			Title:       "إلغاء كافة تحويلات المكالمات",
+			Code:        "##002#",
+			Method:      "USSD اتصال",
+			Description: "لإلغاء جميع أنواع تحويل المكالمات النشطة على خطك فوراً.",
+			Actions: []ServiceActionItem{
+				{Title: "📞 إلغاء كافة التحويلات (##002#)", Type: "ussd", Value: "##002#"},
+			},
+		},
+		{
+			ID:          "check_active_services",
+			Title:       "معرفة جميع الخدمات المفعلة على خطك",
+			Code:        "*350#",
+			Method:      "USSD اتصال",
+			Description: "للوصول إلى قائمة الخدمات والعروض المفعلة على شريحتك ومراجعتها.",
+			Actions: []ServiceActionItem{
+				{Title: "📞 استعراض الخدمات المشترك بها (*350#)", Type: "ussd", Value: "*350#"},
+			},
+		},
+	}
+
+	internetControl := InternetControlInfo{
+		Title:        "خدمة التحكم بالإنترنت وحماية الرصيد",
+		Description:  "تتيح لك إيقاف استهلاك الإنترنت من الرصيد الأساسي بمجرد انتهاء باقتك لمنع الاستقطاع المباشر عند فتح بيانات الهاتف.",
+		USSDCode:     "*223#",
+		CustomerCare: "111",
+		WhatsAppCare: "+9647701111111",
+		Instructions: []string{
+			"اتصل بالكود *223# لإدارة خط الإنترنت وتفعيل حماية الرصيد.",
+			"أو اتصل بـ 111 (خدمة المشتركين) واطلب من الموظف: تفعيل ميزة إيقاف الإنترنت خارج الباقة.",
+			"أو أرسل رسالة عبر واتساب الدعم الفني لآسياسيل على الرقم: 9647701111111+",
+			"تأكد من إيقاف (التحديث التلقائي للتطبيقات) من متجر Google Play أو App Store لمنع الاستهلاك بالخلفية.",
+		},
+	}
+
+	return &ServicesManagementOverview{
+		ActiveBundles:      activeBundles,
+		CancellationGuides: cancellations,
+		InternetControl:    internetControl,
+	}, nil
+}
+
+func (c *Client) GetServiceControl(ctx context.Context, serviceID string) (*ServiceCancellationInfo, error) {
+	mgmt, err := c.GetServicesManagement(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range mgmt.CancellationGuides {
+		if s.ID == serviceID {
+			return &s, nil
+		}
+	}
+	return nil, fmt.Errorf("service not found: %s", serviceID)
+}
+
+func (c *Client) ExecuteServiceAction(ctx context.Context, serviceID string, actionIndex int) (*ServiceActionResult, error) {
+	svc, err := c.GetServiceControl(ctx, serviceID)
+	if err != nil {
+		return nil, err
+	}
+	if actionIndex < 0 || actionIndex >= len(svc.Actions) {
+		return nil, fmt.Errorf("action index out of range: %d", actionIndex)
+	}
+
+	act := svc.Actions[actionIndex]
+	var instruction string
+	switch act.Type {
+	case "ussd":
+		instruction = fmt.Sprintf("للطلب المباشر من خطك، اتصل بالكود التالي:\n%s", act.Value)
+	case "sms":
+		parts := strings.Split(act.Value, ":")
+		if len(parts) == 2 {
+			instruction = fmt.Sprintf("أرسل رسالة نصية تحتوي على الرقم %s إلى %s", parts[1], parts[0])
+		} else {
+			instruction = fmt.Sprintf("أرسل رسالة نصية إلى %s", act.Value)
+		}
+	case "call":
+		instruction = fmt.Sprintf("اتصل فوراً بمركز خدمة العملاء على الرقم %s", act.Value)
+	case "url":
+		instruction = fmt.Sprintf("تواصل مباشرة عبر الرابط التالي: %s", act.URL)
+	default:
+		instruction = fmt.Sprintf("الرمز: %s", act.Value)
+	}
+
+	return &ServiceActionResult{
+		Success:     true,
+		ServiceID:   serviceID,
+		Title:       act.Title,
+		ActionType:  act.Type,
+		Value:       act.Value,
+		URL:         act.URL,
+		Instruction: instruction,
+	}, nil
+}
+
+func (c *Client) GetHomeLayout(ctx context.Context) (*HomeData, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v2/home?lang=%s", c.language), nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting home layout: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var homeResp HomeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&homeResp); err != nil {
+		return nil, fmt.Errorf("decoding home layout: %w", err)
+	}
+
+	return &homeResp.Data, nil
+}
+
+func (c *Client) GetCities(ctx context.Context) ([]CityPartner, error) {
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/partners/cities?lang=%s", c.language), nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting cities: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var citiesResp CitiesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&citiesResp); err != nil {
+		return nil, fmt.Errorf("decoding cities: %w", err)
+	}
+
+	return citiesResp.Data, nil
+}
+
+func (c *Client) GetDigitalServices(ctx context.Context) (*DigitalServicesInfo, error) {
+	return &DigitalServicesInfo{
+		Title: "خدمات ومنصات آسياسيل الرقمية",
+		Services: []DigitalServiceItem{
+			{
+				Title:       "متجر بطاقات الألعاب والشحن (AsiaMall)",
+				Description: "شراء بطاقات الألعاب والهدايا الرقمية (بلايستيشن، ببجي، آيتونز، وغيرها) مباشرة من متجر آسياسيل الرسمي.",
+				URL:         "https://asiamall.asiacell.com/asiamall-product/digital-vouchers.html",
+			},
+			{
+				Title:       "بوابة نغمات ورنات ميلودي (Melody)",
+				Description: "البوابة الرسمية لاستعراض واختيار نغمات رنين المتصل وإدارة حساب ميلودي.",
+				URL:         "https://melody.asiacell.com/user/#/",
+			},
+			{
+				Title:       "مكافآت برنامج وفاء (Wafaa Rewards)",
+				Description: "برنامج مكافآت ونقاط وفاء المخصص لعملاء آسياسيل للاستفادة من الهدايا والخصومات.",
+				URL:         "https://app.asiacell.com",
+			},
+		},
+	}, nil
+}
+
+func (c *Client) GetUnlimited4GBundles(ctx context.Context) ([]HomeItem, error) {
+	home, err := c.GetHomeLayout(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, b := range home.Bodies {
+		if b.GroupID == 30 || strings.Contains(b.Title, "4G") {
+			return b.Items, nil
+		}
+	}
+
+	return nil, fmt.Errorf("unlimited 4g bundles not found")
+}
+
+func (c *Client) GetCityShops(ctx context.Context, cityID int) ([]ShopInfo, error) {
+	path := fmt.Sprintf("/api/v1/shops?cities=%d&lat=&lng=&distance=2500&minDistance=500&lang=%s", cityID, c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting shops: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var shopsResp ShopsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&shopsResp); err != nil {
+		return nil, fmt.Errorf("decoding shops response: %w", err)
+	}
+
+	return shopsResp.Data, nil
+}
+
+func (c *Client) GetAddonSummary(ctx context.Context, itemID int) (*AddonSummaryData, error) {
+	path := fmt.Sprintf("/api/v2/addon/summary/%d?lang=%s", itemID, c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting addon summary: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var summaryResp AddonSummaryResponse
+	if err := json.NewDecoder(resp.Body).Decode(&summaryResp); err != nil {
+		return nil, fmt.Errorf("decoding addon summary response: %w", err)
+	}
+
+	if !summaryResp.Success {
+		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, summaryResp.Message)
+	}
+
+	return &summaryResp.Data, nil
+}
+
+func (c *Client) SubscribeAddon(ctx context.Context, itemID int) (*AddonSubscribeResponse, error) {
+	path := fmt.Sprintf("/api/v1/addon?addOnId=%d&actionKey=subscribe&lang=%s", itemID, c.language)
+	body := strings.NewReader("{}")
+	resp, err := c.doRequest(ctx, http.MethodPost, path, body)
+	if err != nil {
+		return nil, fmt.Errorf("requesting addon subscription: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var subResp AddonSubscribeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&subResp); err != nil {
+		return nil, fmt.Errorf("decoding addon subscription response: %w", err)
+	}
+
+	if !subResp.Success {
+		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, subResp.Message)
+	}
+
+	return &subResp, nil
+}
+
+
+
