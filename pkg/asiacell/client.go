@@ -116,8 +116,9 @@ func NewClient(opts ...Option) (*Client, error) {
 			MinVersion: tls.VersionTLS12,
 		},
 		ForceAttemptHTTP2:   true,
-		MaxIdleConns:        10,
-		IdleConnTimeout:     30 * time.Second,
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 20,
+		IdleConnTimeout:     90 * time.Second,
 		DisableCompression:  false,
 	}
 
@@ -281,6 +282,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 			c.mu.RUnlock()
 
 			if hasRefresh && bodyBytes == nil {
+				_, _ = io.Copy(io.Discard, resp.Body)
 				_ = resp.Body.Close()
 				if refErr := c.RefreshToken(ctx); refErr == nil {
 					retryReq, retryErr := http.NewRequestWithContext(ctx, method, fullURL, nil)
@@ -300,14 +302,15 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 		peekBytes, _ := br.Peek(512)
 		peekTrimmed := strings.TrimSpace(string(peekBytes))
 		if strings.HasPrefix(peekTrimmed, "<") || strings.Contains(peekTrimmed, "Access Blocked") || strings.Contains(peekTrimmed, "<!DOCTYPE") {
+			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
 			lastErr = fmt.Errorf("host %s returned HTML response instead of JSON", host)
 			continue
 		}
 
 		resp.Body = &readCloser{
-			Reader: br,
-			Closer: resp.Body,
+			reader: br,
+			closer: resp.Body,
 		}
 
 		return resp, nil
@@ -366,8 +369,17 @@ func (c *Client) SetRecordedIncomingTransfers(records []TransactionRecord) {
 }
 
 type readCloser struct {
-	io.Reader
-	io.Closer
+	reader io.Reader
+	closer io.Closer
+}
+
+func (rc *readCloser) Read(p []byte) (n int, err error) {
+	return rc.reader.Read(p)
+}
+
+func (rc *readCloser) Close() error {
+	_, _ = io.Copy(io.Discard, rc.reader)
+	return rc.closer.Close()
 }
 
 
