@@ -1788,4 +1788,79 @@ type EpicLineUsageResponse struct {
 	Data    *EpicLineUsageData `json:"data"`
 }
 
+// --- Watch, Protected Payments, Asiaverse & Scanning ---
+
+type WatchDashboardData struct {
+	MSISDN     string  `json:"msisdn"`
+	Balance    string  `json:"balance"`
+	InternetMB float64 `json:"internetMb"`
+	Minutes    int     `json:"minutes"`
+	SMS        int     `json:"sms"`
+	Expiry     string  `json:"expiry"`
+}
+
+type WatchDashboardResponse struct {
+	Success bool                `json:"success"`
+	Message string              `json:"message"`
+	Data    *WatchDashboardData `json:"data"`
+}
+
+type ProtectedPaymentStatusData struct {
+	TransactionID string  `json:"transactionId"`
+	Status        string  `json:"status"`
+	Amount        float64 `json:"amount"`
+	Currency      string  `json:"currency"`
+}
+
+type ProtectedPaymentStatusResponse struct {
+	Success bool                        `json:"success"`
+	Message string                      `json:"message"`
+	Data    *ProtectedPaymentStatusData `json:"data"`
+}
+
+type AsiaverseHomeData struct {
+	Title       string `json:"title"`
+	Banner      string `json:"banner"`
+	Status      string `json:"status"`
+	RedirectURL string `json:"redirectUrl"`
+}
+
+type AsiaverseHomeResponse struct {
+	Success bool               `json:"success"`
+	Message string             `json:"message"`
+	Data    *AsiaverseHomeData `json:"data"`
+}
+
+type ScanToWinData struct {
+	CampaignID string `json:"campaignId"`
+	Title      string `json:"title"`
+	ScanLimit  int    `json:"scanLimit"`
+	IsActive   bool   `json:"isActive"`
+}
+
+type ScanToWinResponse struct {
+	Success bool           `json:"success"`
+	Message string         `json:"message"`
+	Data    *ScanToWinData `json:"data"`
+}
+
+type CDRSummaryData struct {
+	TotalTransfersIn  float64 `json:"totalTransfersIn"`
+	TotalTransfersOut float64 `json:"totalTransfersOut"`
+	TransfersCount    int     `json:"transfersCount"`
+}
+
+type CDRSummaryResponse struct {
+	Success bool            `json:"success"`
+	Message string          `json:"message"`
+	Data    *CDRSummaryData `json:"data"`
+}
+
+type UserInterestsResponse struct {
+	Success bool     `json:"success"`
+	Message string   `json:"message"`
+	Data    []string `json:"data"`
+}
+
+
 

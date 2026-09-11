@@ -9,7 +9,7 @@
 <br />
 
 [![Specification](https://img.shields.io/badge/Specification-100%25%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
-[![Endpoints](https://img.shields.io/badge/Endpoints-123%20Verified-18181b?style=flat-square)](ENDPOINTS.md)
+[![Endpoints](https://img.shields.io/badge/Endpoints-141%20Verified-18181b?style=flat-square)](ENDPOINTS.md)
 [![Protocol](https://img.shields.io/badge/Protocol-HTTPS%2FREST-18181b?style=flat-square)](ENDPOINTS.md)
 [![Client](https://img.shields.io/badge/Go%20Client-asiacell--go-18181b?style=flat-square)](https://github.com/FLEX-GHOST/asiacell-go)
 
@@ -148,6 +148,24 @@
 | **121** | `POST` | `/api/v1/one-yad/request` | `client.SubmitOneYadRequest(ctx, teamId, amount)` | تقديم طلب تبرع أو مساهمة في مبادرة يد واحدة |
 | **122** | `GET` | `/api/v1/epic` | `client.GetEpicLines(ctx)` | لوحة تحكم خطوط الشركات والخطوط المؤسسية (Epic Corporate) |
 | **123** | `GET` | `/api/v1/epic/remaining/{msisdn}` | `client.GetEpicLineUsage(ctx, msisdn)` | استعلام الرصيد والمتبقي من البيانات والمكالمات للخط المؤسسي |
+| **124** | `POST` | `/api/v1/profile/upload` | `client.UploadProfileImage(ctx, filename, r)` | رفع وتحديث صورة الحساب الرمزية (Avatar) كملف مالتيبارت |
+| **125** | `POST` | `/api/v2/logo/upload` | `client.UploadPartnerLogo(ctx, filename, r)` | رفع شعار المتجر للشركاء التجاريين كملف مالتيبارت |
+| **126** | `POST` | `/api/v1/notifications/register` | `client.RegisterNotificationToken(ctx, token, os)` | تسجيل توكن جهاز المشترك (FCM) لاستقبال الإشعارات السحابية |
+| **127** | `POST` | `/api/v1/notifications/log` | `client.LogNotificationRead(ctx, notifId)` | تسجيل قراءة وتفاعل المشترك مع إشعار محدد |
+| **128** | `POST` | `/api/v1/biometrics/register` | `client.RegisterBiometrics(ctx)` | تسجيل بصمة الإصبع/الوجه بيومترياً على خوادم آسياسيل |
+| **129** | `POST` | `/api/v1/biometrics/do-login` | `client.BiometricLogin(ctx, key)` | تسجيل الدخول السريع عبر المصادقة البيومترية بدون طلب OTP |
+| **130** | `GET` | `/api/v1/watch/home` | `client.GetWatchDashboard(ctx)` | لوحة تحكم الساعات الذكية (Apple Watch و Wear OS) |
+| **131** | `GET` | `/protected/v1/payments/{txId}/status` | `client.GetProtectedPaymentStatus(ctx, txId)` | فحص حالة عملية الدفع المحمية المشفرة |
+| **132** | `POST` | `/protected/v1/payments/{txId}/cancel` | `client.CancelProtectedPayment(ctx, txId)` | إلغاء عملية الدفع المحمية المعلقة |
+| **133** | `POST` | `/api/v1/top-up/omega` | `client.TopUpOmega(ctx, phone, voucher)` | شحن وتعبئة كروت وباقات خطوط أوميغا |
+| **134** | `POST` | `/api/v1/delete` | `client.DeleteAccount(ctx)` | تقديم طلب رسمي لإغلاق وحذف الحساب نهائياً |
+| **135** | `GET` | `/api/v1/asiaverse` | `client.GetAsiaverseHome(ctx)` | لوحة تحكم واستعلام منصة Asiaverse التفاعلية |
+| **136** | `GET` | `/api/v1/shazam` | `client.GetShazamScanStatus(ctx)` | فحص حالة ومحاولات مسابقة مسح الباركود والفوز (Scan-to-Win) |
+| **137** | `POST` | `/api/v1/shazam` | `client.SubmitShazamScan(ctx, qrCode)` | إرسال كود الباركود الممسوح للمسابقة واستلام الجائزة |
+| **138** | `GET` | `/api/v1/profile/interests` | `client.GetUserInterests(ctx)` | استعلام قائمة اهتمامات وتفضيلات المشترك المحفوظة |
+| **139** | `POST` | `/api/v1/avocado/profile/save-interests` | `client.SaveUserInterests(ctx, interests)` | حفظ وتحديث قائمة اهتمامات وتفضيلات المشترك |
+| **140** | `GET` | `/api/v1/cdr/summary` | `client.GetCDRSummary(ctx)` | ملخص وإحصائيات تحويلات الرصيد الواردة والصادرة (CDR Summary) |
+| **141** | `POST` | `/api/v1/map-account/resend` | `client.ResendLinkedAccountSMS(ctx, phone)` | إعادة إرسال رمز SMS لتأكيد ربط الخط الإضافي بالحساب |
 
 ---
 

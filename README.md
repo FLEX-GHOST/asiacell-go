@@ -7,7 +7,7 @@
 **Production-grade, zero-dependency Go SDK for Asiacell Iraq APIs**
 
 [![Go Version](https://img.shields.io/badge/Go-1.26+-18181b?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
-[![Verified Endpoints](https://img.shields.io/badge/Endpoints-123%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
+[![Verified Endpoints](https://img.shields.io/badge/Endpoints-141%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
 [![Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(Stdlib)-18181b?style=flat-square)](https://pkg.go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-18181b?style=flat-square)](LICENSE)
 
@@ -35,9 +35,10 @@ asiacell-go/
 │       ├── yooz.go              # منظومة خطوط Yooz / Avocado الشبابية
 │       ├── recharge.go          # مسار الدفع والشحن الإلكتروني متعدد المراحل
 │       ├── addons_v3.go         # صمم باقتك (CYO)، الداشبورد v3، الاستبيانات، يد واحدة، وEpic
+│       ├── device_services.go   # رفع الصور، الإشعارات، البيومترك، الساعات، والدفع المحمي
 │       └── types.go             # هياكل البيانات ونماذج الاستجابة JSON
 ├── examples/                    # أمثلة عملية مستقلة لكل خدمة
-├── ENDPOINTS.md                 # التوثيق التقني لجميع نقاط النهاية الـ 123
+├── ENDPOINTS.md                 # التوثيق التقني لجميع نقاط النهاية الـ 141
 ├── README.md
 └── go.mod
 ```
@@ -46,7 +47,7 @@ asiacell-go/
 
 ## ميزات وقدرات المكتبة (Features)
 
-المكتبة تغطي 123 واجهة برمجية (Endpoints) رسمية تم فحصها والتحقق من سلامتها بنسبة 100%:
+المكتبة تغطي 141 واجهة برمجية (Endpoints) رسمية تم فحصها والتحقق من سلامتها بنسبة 100%:
 
 ### 1. المصادقة وإدارة الجلسات (Authentication & Sessions)
 - **طلب رمز التحقق (SMS OTP)**: `Login(ctx, phone)` لإرسال رمز الدخول مباشرة للهاتف.
@@ -161,6 +162,17 @@ asiacell-go/
 - **صمم باقتك بنفسك (CYO) والعروض**: `GetCYOBundles(ctx, groupId)` و `GetActiveOffers(ctx)`.
 - **الاستبيانات وصوت العميل**: `SubmitAppFeedback(ctx, cat, comment, rating)` و `GetSurveys(ctx)` و `SubmitSurvey(ctx, surveyId, answers)` و `GetVoiceOfCustomer(ctx)` و `GetVideoTutorials(ctx)`.
 - **مبادرة يد واحدة والخطوط المؤسسية**: `GetOneYadHome(ctx)` و `GetOneYadTeams(ctx)` و `SubmitOneYadRequest(ctx, teamId, amount)` و `GetEpicLines(ctx)` و `GetEpicLineUsage(ctx, msisdn)`.
+
+### 15. الأجهزة، الإشعارات، البيومترك، والدفع المحمي (Devices, Push & Biometrics)
+- **رفع الصور والملفات**: `UploadProfileImage(ctx, filename, reader)` لتغيير صورة الحساب، و `UploadPartnerLogo(ctx, filename, reader)` لرفع شعار المتجر.
+- **الإشعارات السحابية (FCM)**: `RegisterNotificationToken(ctx, token, os)` لتسجيل الجهاز، و `LogNotificationRead(ctx, notifId)` لتسجيل التفاعل.
+- **المصادقة البيومترية**: `RegisterBiometrics(ctx)` لتسجيل البصمة، و `BiometricLogin(ctx, key)` لتسجيل الدخول الفوري بدون كود SMS.
+- **لوحة تحكم الساعات الذكية**: `GetWatchDashboard(ctx)` لتطبيقات Apple Watch و Wear OS.
+- **بوابة الدفع المحمية (Escrow/FIB)**: `GetProtectedPaymentStatus(ctx, txId)` و `CancelProtectedPayment(ctx, txId)`.
+- **شحن أوميغا وحذف الحساب**: `TopUpOmega(ctx, phone, voucher)` و `DeleteAccount(ctx)`.
+- **منصة Asiaverse ومسابقات الباركود**: `GetAsiaverseHome(ctx)` و `GetShazamScanStatus(ctx)` و `SubmitShazamScan(ctx, code)`.
+- **تفضيلات واهتمامات المشترك**: `GetUserInterests(ctx)` و `SaveUserInterests(ctx, interests)`.
+- **ملخص الحوالات وإعادة إرسال الكود**: `GetCDRSummary(ctx)` و `ResendLinkedAccountSMS(ctx, phone)`.
 
 ## البدء السريع (Quick Start)
 

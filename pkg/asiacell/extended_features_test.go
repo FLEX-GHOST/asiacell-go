@@ -1,6 +1,7 @@
 package asiacell
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -661,3 +662,172 @@ func TestAddonsV3AndSurveysFlow(t *testing.T) {
 		t.Fatalf("GetEpicLineUsage failed: %v", err)
 	}
 }
+
+func TestDeviceAndAdvancedAPIsFlow(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/profile/upload":
+			w.WriteHeader(http.StatusOK)
+		case "/api/v2/logo/upload":
+			w.WriteHeader(http.StatusOK)
+		case "/api/v1/notifications/register":
+			w.WriteHeader(http.StatusOK)
+		case "/api/v1/notifications/log":
+			w.WriteHeader(http.StatusOK)
+		case "/api/v1/biometrics/register":
+			w.WriteHeader(http.StatusOK)
+		case "/api/v1/biometrics/do-login":
+			_ = json.NewEncoder(w).Encode(LoginResponse{
+				Success:  true,
+				Username: "07701234567",
+			})
+		case "/api/v1/watch/home":
+			_ = json.NewEncoder(w).Encode(WatchDashboardResponse{
+				Success: true,
+				Data: &WatchDashboardData{
+					MSISDN:     "07701234567",
+					Balance:    "5,000 IQD",
+					InternetMB: 4096,
+				},
+			})
+		case "/protected/v1/payments/tx-999/status":
+			_ = json.NewEncoder(w).Encode(ProtectedPaymentStatusResponse{
+				Success: true,
+				Data: &ProtectedPaymentStatusData{
+					TransactionID: "tx-999",
+					Status:        "COMPLETED",
+					Amount:        25000,
+					Currency:      "IQD",
+				},
+			})
+		case "/protected/v1/payments/tx-999/cancel":
+			w.WriteHeader(http.StatusOK)
+		case "/api/v1/top-up/omega":
+			w.WriteHeader(http.StatusOK)
+		case "/api/v1/delete":
+			w.WriteHeader(http.StatusOK)
+		case "/api/v1/asiaverse":
+			_ = json.NewEncoder(w).Encode(AsiaverseHomeResponse{
+				Success: true,
+				Data: &AsiaverseHomeData{
+					Title:  "Asiaverse World",
+					Status: "active",
+				},
+			})
+		case "/api/v1/shazam":
+			if r.Method == http.MethodGet {
+				_ = json.NewEncoder(w).Encode(ScanToWinResponse{
+					Success: true,
+					Data: &ScanToWinData{
+						CampaignID: "camp-shazam",
+						IsActive:   true,
+					},
+				})
+			} else {
+				w.WriteHeader(http.StatusOK)
+			}
+		case "/api/v1/profile/interests":
+			_ = json.NewEncoder(w).Encode(UserInterestsResponse{
+				Success: true,
+				Data:    []string{"Gaming", "Sports", "Music"},
+			})
+		case "/api/v1/avocado/profile/save-interests":
+			w.WriteHeader(http.StatusOK)
+		case "/api/v1/cdr/summary":
+			_ = json.NewEncoder(w).Encode(CDRSummaryResponse{
+				Success: true,
+				Data: &CDRSummaryData{
+					TotalTransfersIn:  50000,
+					TotalTransfersOut: 20000,
+					TransfersCount:    15,
+				},
+			})
+		case "/api/v1/map-account/resend":
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	client, err := NewClient()
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+	client.baseURL = ts.URL
+	ctx := context.Background()
+
+	// 1. Upload Profile & Logo
+	dummyImage := []byte{0x89, 0x50, 0x4E, 0x47}
+	if err := client.UploadProfileImage(ctx, "avatar.png", bytes.NewReader(dummyImage)); err != nil {
+		t.Fatalf("UploadProfileImage failed: %v", err)
+	}
+	if err := client.UploadPartnerLogo(ctx, "logo.png", bytes.NewReader(dummyImage)); err != nil {
+		t.Fatalf("UploadPartnerLogo failed: %v", err)
+	}
+
+	// 2. Notifications & Biometrics
+	if err := client.RegisterNotificationToken(ctx, "fcm-token-123", "android"); err != nil {
+		t.Fatalf("RegisterNotificationToken failed: %v", err)
+	}
+	if err := client.LogNotificationRead(ctx, "notif-99"); err != nil {
+		t.Fatalf("LogNotificationRead failed: %v", err)
+	}
+	if err := client.RegisterBiometrics(ctx); err != nil {
+		t.Fatalf("RegisterBiometrics failed: %v", err)
+	}
+	bioLogin, err := client.BiometricLogin(ctx, "key-biometrics-abc")
+	if err != nil || bioLogin.Username != "07701234567" {
+		t.Fatalf("BiometricLogin failed: %v", err)
+	}
+
+	// 3. Watch & Protected Payments
+	watch, err := client.GetWatchDashboard(ctx)
+	if err != nil || watch.InternetMB != 4096 {
+		t.Fatalf("GetWatchDashboard failed: %v", err)
+	}
+	pStatus, err := client.GetProtectedPaymentStatus(ctx, "tx-999")
+	if err != nil || pStatus.Status != "COMPLETED" {
+		t.Fatalf("GetProtectedPaymentStatus failed: %v", err)
+	}
+	if err := client.CancelProtectedPayment(ctx, "tx-999"); err != nil {
+		t.Fatalf("CancelProtectedPayment failed: %v", err)
+	}
+
+	// 4. Omega, Delete, Asiaverse & Shazam
+	if err := client.TopUpOmega(ctx, "07701234567", "12345678901234"); err != nil {
+		t.Fatalf("TopUpOmega failed: %v", err)
+	}
+	if err := client.DeleteAccount(ctx); err != nil {
+		t.Fatalf("DeleteAccount failed: %v", err)
+	}
+	asiaverse, err := client.GetAsiaverseHome(ctx)
+	if err != nil || asiaverse.Title != "Asiaverse World" {
+		t.Fatalf("GetAsiaverseHome failed: %v", err)
+	}
+	shazam, err := client.GetShazamScanStatus(ctx)
+	if err != nil || !shazam.IsActive {
+		t.Fatalf("GetShazamScanStatus failed: %v", err)
+	}
+	if err := client.SubmitShazamScan(ctx, "QR-CODE-123"); err != nil {
+		t.Fatalf("SubmitShazamScan failed: %v", err)
+	}
+
+	// 5. Interests, CDR Summary & Resend SMS
+	interests, err := client.GetUserInterests(ctx)
+	if err != nil || len(interests) != 3 {
+		t.Fatalf("GetUserInterests failed: %v", err)
+	}
+	if err := client.SaveUserInterests(ctx, []string{"Gaming"}); err != nil {
+		t.Fatalf("SaveUserInterests failed: %v", err)
+	}
+	cdrSummary, err := client.GetCDRSummary(ctx)
+	if err != nil || cdrSummary.TransfersCount != 15 {
+		t.Fatalf("GetCDRSummary failed: %v", err)
+	}
+	if err := client.ResendLinkedAccountSMS(ctx, "07709998877"); err != nil {
+		t.Fatalf("ResendLinkedAccountSMS failed: %v", err)
+	}
+}
+
