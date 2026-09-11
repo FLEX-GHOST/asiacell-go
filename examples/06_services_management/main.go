@@ -67,7 +67,33 @@ func main() {
 		fmt.Printf("Full Instruction:   %s\n", res.Instruction)
 	}
 
-	fmt.Println("\n=== 4. Digital Services & Platforms ===")
+	fmt.Println("\n=== 4. Active Subscriptions (الاشتراكات الفعالة من السيرفر) ===")
+	subs, err := client.GetMySubscriptions(ctx)
+	if err != nil {
+		fmt.Printf("GetMySubscriptions error: %v\n", err)
+	} else if len(subs) == 0 {
+		fmt.Println("No active subscriptions currently on this line.")
+	} else {
+		for i, s := range subs {
+			actTitle := "None"
+			if s.ActionButton != nil {
+				actTitle = string(s.ActionButton.Title)
+			}
+			fmt.Printf("[%d] %s (Validity: %s, Action: %s)\n", i+1, s.Title, s.Validity, actTitle)
+		}
+	}
+
+	fmt.Println("\n=== 5. Cloud USSD Interactive Menu (قائمة USSD السحابية) ===")
+	menu, err := client.GetUSSDMenu(ctx, 0)
+	if err != nil {
+		fmt.Printf("GetUSSDMenu error: %v\n", err)
+	} else {
+		for _, item := range menu {
+			fmt.Printf("  • [%d] %s (%s)\n", item.ID, item.Content, item.USSDID)
+		}
+	}
+
+	fmt.Println("\n=== 6. Digital Services & Platforms ===")
 	digital, err := client.GetDigitalServices(ctx)
 	if err != nil {
 		fmt.Printf("GetDigitalServices error: %v\n", err)
@@ -77,3 +103,4 @@ func main() {
 		}
 	}
 }
+

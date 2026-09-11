@@ -968,3 +968,207 @@ func TestYoozAndEVouchers(t *testing.T) {
 		t.Fatalf("GetEVoucherPackages failed: %v", err)
 	}
 }
+
+func TestSubscriptionsAndUSSD(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.Contains(r.URL.Path, "/api/v1/profile/subscriptions"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"success": true,
+				"message": "success",
+				"data": [
+					{
+						"title": "Keep In Touch",
+						"validity": "2026-10-01",
+						"actionButton": {
+							"title": "إلغاء الاشتراك",
+							"action": "cancel_kit",
+							"disabled": false
+						}
+					}
+				]
+			}`))
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/api/v1/ussd"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"success": true,
+				"message": "success",
+				"data": [
+					{
+						"id": 1,
+						"content": "خدمات الإنترنت",
+						"ussdId": "1",
+						"subContent": "باقات يومية وشهرية"
+					}
+				]
+			}`))
+		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/api/v1/ussd"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"success": true,
+				"message": "success",
+				"data": {
+					"title": "تم بنجاح",
+					"msg": "تم استلام طلبك",
+					"positive": {
+						"title": "موافق"
+					}
+				}
+			}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	client, err := NewClient()
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+	client.baseURL = ts.URL
+	client.accessToken = "mock-token"
+
+	ctx := context.Background()
+
+	// 1. Test GetMySubscriptions
+	subs, err := client.GetMySubscriptions(ctx)
+	if err != nil {
+		t.Fatalf("GetMySubscriptions failed: %v", err)
+	}
+	if len(subs) != 1 || string(subs[0].Title) != "Keep In Touch" {
+		t.Fatalf("unexpected subscriptions: %+v", subs)
+	}
+
+	// 2. Test GetUSSDMenu
+	menu, err := client.GetUSSDMenu(ctx, 0)
+	if err != nil {
+		t.Fatalf("GetUSSDMenu failed: %v", err)
+	}
+	if len(menu) != 1 || string(menu[0].Content) != "خدمات الإنترنت" {
+		t.Fatalf("unexpected ussd menu: %+v", menu)
+	}
+
+	// 3. Test SubmitUSSDAction
+	res, err := client.SubmitUSSDAction(ctx, map[string]string{"parent_id": "0", "choice": "1"})
+	if err != nil {
+		t.Fatalf("SubmitUSSDAction failed: %v", err)
+	}
+	if res == nil || string(res.Title) != "تم بنجاح" {
+		t.Fatalf("unexpected ussd result: %+v", res)
+	}
+}
+
+func TestAdvancedAPKFeatures(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/v1/addon") && r.Method == http.MethodPost:
+			if r.URL.Query().Get("actionKey") == "unsubscribe" && r.URL.Query().Get("addOnId") == "555" {
+				_, _ = w.Write([]byte(`{"success": true, "message": "تم إلغاء الاشتراك بنجاح"}`))
+				return
+			}
+			http.Error(w, `{"success": false}`, http.StatusBadRequest)
+		case strings.HasPrefix(r.URL.Path, "/api/v1/profile/bundle/bundle_4g_daily"):
+			_, _ = w.Write([]byte(`{
+				"success": true,
+				"data": {
+					"bodies": [{
+						"title": "باقة 4G اليومية",
+						"volume": 1024,
+						"unit": "MB",
+						"validity": "24 hours",
+						"actionButtons": [{"title": "إلغاء", "action": "post:/api/v1/addon?addOnId=555&actionKey=unsubscribe"}]
+					}]
+				}
+			}`))
+		case r.URL.Path == "/api/v1/logout":
+			_, _ = w.Write([]byte(`{"success": true, "message": "logged out"}`))
+		case r.URL.Path == "/api/v1/map-account" && r.Method == http.MethodGet:
+			_, _ = w.Write([]byte(`{"success": true, "data": ["07701112233", "07709998877"]}`))
+		case r.URL.Path == "/api/v1/map-account" && r.Method == http.MethodPost:
+			_, _ = w.Write([]byte(`{"success": true, "message": "OTP sent"}`))
+		case r.URL.Path == "/api/v1/map-account/confirm":
+			_, _ = w.Write([]byte(`{"success": true, "message": "confirmed"}`))
+		case r.URL.Path == "/api/v1/account-action/switch":
+			_, _ = w.Write([]byte(`{"success": true, "message": "switched"}`))
+		case r.URL.Path == "/api/v1/account-action/remove":
+			_, _ = w.Write([]byte(`{"success": true, "message": "removed"}`))
+		case r.URL.Path == "/api/v1/addon/datacap/set-limit":
+			_, _ = w.Write([]byte(`{"success": true, "message": "datacap limit set"}`))
+		case r.URL.Path == "/api/v1/addon/share/set-limit":
+			_, _ = w.Write([]byte(`{"success": true, "message": "share limit set"}`))
+		case strings.HasPrefix(r.URL.Path, "/api/v1/addon/tags/12"):
+			_, _ = w.Write([]byte(`{"success": true, "data": {"screenTitle": "Internet", "items": [{"id": 1, "title": "1GB Daily"}], "tags": [{"tag": "daily", "title": "Daily"}]}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	client, err := NewClient()
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+	client.baseURL = ts.URL
+	client.accessToken = "mock-token"
+	ctx := context.Background()
+
+	// 1. Test UnsubscribeAddon
+	unsub, err := client.UnsubscribeAddon(ctx, 555)
+	if err != nil || !unsub.Success {
+		t.Fatalf("UnsubscribeAddon failed: %v", err)
+	}
+
+	// 2. Test GetBundleDetail
+	bDetail, err := client.GetBundleDetail(ctx, "bundle_4g_daily")
+	if err != nil || len(bDetail.Bodies) != 1 {
+		t.Fatalf("GetBundleDetail failed: %v", err)
+	}
+	if len(bDetail.Bodies[0].ActionButtons) != 1 {
+		t.Fatalf("expected action button in bundle detail")
+	}
+
+	// 3. Test Logout
+	if err := client.Logout(ctx); err != nil {
+		t.Fatalf("Logout failed: %v", err)
+	}
+	if client.accessToken != "" {
+		t.Fatalf("expected accessToken to be cleared after logout")
+	}
+	client.accessToken = "mock-token"
+
+	// 4. Test Multi-Account
+	accounts, err := client.GetLinkedAccounts(ctx)
+	if err != nil || len(accounts) != 2 {
+		t.Fatalf("GetLinkedAccounts failed: %v", err)
+	}
+	if err := client.AddLinkedAccount(ctx, "07705554433"); err != nil {
+		t.Fatalf("AddLinkedAccount failed: %v", err)
+	}
+	if err := client.ConfirmLinkedAccount(ctx, "07705554433", "1234"); err != nil {
+		t.Fatalf("ConfirmLinkedAccount failed: %v", err)
+	}
+	if err := client.SwitchActiveAccount(ctx, "07705554433"); err != nil {
+		t.Fatalf("SwitchActiveAccount failed: %v", err)
+	}
+	if err := client.RemoveLinkedAccount(ctx, "07705554433"); err != nil {
+		t.Fatalf("RemoveLinkedAccount failed: %v", err)
+	}
+
+	// 5. Test Limits
+	if err := client.SetDataCapLimit(ctx, 5000); err != nil {
+		t.Fatalf("SetDataCapLimit failed: %v", err)
+	}
+	if err := client.SetBundleShareLimit(ctx, "07701112233", 1024); err != nil {
+		t.Fatalf("SetBundleShareLimit failed: %v", err)
+	}
+
+	// 6. Test GetAddonByTagID
+	tagBundles, err := client.GetAddonByTagID(ctx, 12)
+	if err != nil || len(tagBundles.Items) != 1 || len(tagBundles.Tags) != 1 {
+		t.Fatalf("GetAddonByTagID failed: %v", err)
+	}
+}
+

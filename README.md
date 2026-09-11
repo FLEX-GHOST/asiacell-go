@@ -7,7 +7,7 @@
 **Production-grade, zero-dependency Go SDK for Asiacell Iraq APIs**
 
 [![Go Version](https://img.shields.io/badge/Go-1.26+-18181b?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
-[![Verified Endpoints](https://img.shields.io/badge/Endpoints-39%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
+[![Verified Endpoints](https://img.shields.io/badge/Endpoints-55%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
 [![Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(Stdlib)-18181b?style=flat-square)](https://pkg.go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-18181b?style=flat-square)](LICENSE)
 
@@ -25,27 +25,25 @@
 ```
 asiacell-go/
 ├── pkg/
-│   └── asiacell/
-│       ├── client.go               # إدارة العميل، الجلسة، الكوكيز، تدوير هوية الجهاز وحل الكابتشا
-│       ├── auth.go                 # المصادقة، طلب وتأكيد رموز التحقق SMS OTP، وتجديد التوكن
-│       ├── profile.go              # الاستعلام عن الرصيد، الباقات النشطة، وبيانات الحساب
-│       ├── services.go             # شحن الكروت، باقات 4G، تحويل الرصيد، المحافظات والفروع، والخدمات
-│       ├── types.go                # هياكل ونماذج البيانات لكافة الطلبات والاستجابات
-│       ├── errors.go               # تعريف الأخطاء وتصنيف استجابات السيرفر
-│       └── client_test.go          # اختبارات الوحدة والتحقق من سلامة الواجهات
-├── examples/
-│   ├── 01_auth_and_session/        # تسجيل الدخول وحفظ واستعادة الجلسة وتجاوز الكابتشا
-│   ├── 02_account_and_profile/     # فحص الرصيد والباقات المتبقية وتفاصيل المستخدم
-│   ├── 03_bundles_and_4g/          # تصفح باقات 4G المفتوحة والعروض الخاصة والاشتراك
-│   ├── 04_credit_transfer/         # تحويل الرصيد وتأكيده بالرمز السري
-│   ├── 05_recharge_voucher/        # شحن كروت الرصيد والإنترنت وسجل التعبئة
-│   ├── 06_services_management/     # حماية رصيد الإنترنت وإلغاء الاشتراكات والخدمات الرقمية
-│   ├── 07_shops_and_governorates/  # تصفح محافظات العراق وفروع ومراكز آسياسيل المعتمدة
-│   ├── 08_spin_wheel_and_rewards/  # عجلة الحظ اليومية ورصيد الطوارئ (شكراً) وباقات التجوال
-│   ├── 09_cdr_incoming_transfer_verification/ # التحقق التلقائي من استلام تحويلات الرصيد عبر سجل CDR
-│   ├── 10_advanced_features/       # سوق الأرقام المميزة، إهداء الباقات، تذاكر الدعم، والتعويضات
-│   ├── interactive_cli/            # تطبيق تفاعلي متكامل عبر موجه الأوامر (Terminal CLI)
-│   └── README.md                   # دليل تشغيل واستخدام كافة الأمثلة الجاهزة
+│   └── asiacell/                # حزمة الـ SDK الأساسية (بدون اعتمادات خارجية)
+│       ├── client.go            # إعداد العميل، الترويسات، وإدارة الجلسات
+│       ├── auth.go              # المصادقة، OTP، والكابتشا
+│       ├── profile.go           # الملف الشخصي، الرصيد، والباقات الفعالة
+│       ├── services.go          # كافة خدمات آسياسيل الـ 55 الرسمية
+│       └── types.go             # هياكل البيانات ونماذج الاستجابة JSON
+├── examples/                    # أمثلة عملية مستقلة لكل خدمة
+│   ├── 01_auth_and_session/     # تسجيل الدخول وحفظ الجلسات
+│   ├── 02_account_and_profile/  # فحص الرصيد والباقات والملف الشخصي
+│   ├── 03_bundles_and_4g/       # تصفح باقات 4G والعروض
+│   ├── 04_credit_transfer/      # تحويل الرصيد
+│   ├── 05_recharge_voucher/     # شحن كروت التعبئة
+│   ├── 06_services_management/  # إدارة الاشتراكات وUSSD السحابي وحماية الرصيد
+│   ├── 07_shops_and_governorates/ # الفروع والمدن
+│   ├── 08_spin_wheel_and_rewards/ # عجلة الحظ
+│   ├── 09_cdr_incoming_transfer_verification/ # التحقق التلقائي من الحوالات
+│   └── 10_advanced_features/    # الأرقام المميزة، التعويضات، والشكاوى
+├── ENDPOINTS.md                 # التوثيق التقني لجميع نقاط النهاية الـ 55
+├── README.md
 └── go.mod
 ```
 
@@ -53,12 +51,13 @@ asiacell-go/
 
 ## ميزات وقدرات المكتبة (Features)
 
-المكتبة تغطي 39 واجهة برمجية (Endpoints) رسمية تم فحصها والتحقق من سلامتها بنسبة 100%:
+المكتبة تغطي 55 واجهة برمجية (Endpoints) رسمية تم فحصها والتحقق من سلامتها بنسبة 100%:
 
 ### 1. المصادقة وإدارة الجلسات (Authentication & Sessions)
 - **طلب رمز التحقق (SMS OTP)**: `Login(ctx, phone)` لإرسال رمز الدخول مباشرة للهاتف.
 - **تأكيد الرمز**: `VerifySMS(ctx, pid, passcode)` واستخراج مفاتيح الوصول (`AccessToken` و `RefreshToken`).
 - **التجديد التلقائي للتوكن**: `AutoRefreshToken(ctx)` لفحص صلاحية الجلسة وتجديدها في الخلفية دون انقطاع.
+- **تسجيل الخروج السحابي**: `Logout(ctx)` لإبطال التوكن رسمياً على خوادم آسياسيل.
 - **تخزين الجلسات واستعادتها**: `SaveSessionToFile(path)` و `LoadSessionFromFile(path)` لحفظ بيانات الدخول كملف JSON واستعادتها لاحقاً دون الحاجة لإعادة طلب رمز SMS.
 - **تصدير واستيراد الكائنات**: `ExportSession()` و `ImportSession(session)` للتعامل البرمجي المباشر.
 - **التعامل مع الكابتشا**: كشف إجباري للكابتشا `ErrCaptchaRequired`، وتدوير هوية الجهاز `RotateDeviceID()` لتجاوزها تلقائياً، مع دعم محلل ذكي `SolveCaptchaOCR()`.
@@ -66,10 +65,12 @@ asiacell-go/
 ### 2. الحساب والرصيد والباقات (Account, Balance & Addons)
 - **ملخص الرصيد والباقات**: `GetProfile(ctx)` لجلب الرصيد الأساسي، باقات الإنترنت المتبقية، دقائق الاتصال، والرسائل.
 - **معلومات الحساب الرسمية**: `GetProfileDetails(ctx)` لجلب اسم صاحب الخط، البريد، الصورة، وتاريخ الميلاد.
+- **تفاصيل الباقة النشطة والتحكم**: `GetBundleDetail(ctx, bundleKey)` لجلب تفاصيل استهلاك الباقة بدقة وأزرار الإجراءات (`actionButtons`).
 - **باقات 4G غير المحدودة**: `GetUnlimited4GBundles(ctx)` لاستعراض باقات الإنترنت المفتوحة اليومية والأسبوعية والشهرية مع تفاصيل الأسعار وفترات الصلاحية.
 - **تصنيفات الباقات الإضافية**: `GetAddonTags(ctx)` و `GetAddonSummary(ctx, tagID)`.
 - **الاشتراك المباشر بالباقات**: `SubscribeAddon(ctx, addonID)` لتفعيل أي باقة فورياً من الرصيد.
-- **العروض الحصرية**: `GetSpecialOffers(ctx)` لجلب العروض المخصصة لخط المستخدم.
+- **إلغاء الاشتراك الفوري**: `UnsubscribeAddon(ctx, addonID)` لإلغاء أي باقة أو إيقاف تجديدها التلقائي برمجياً (`actionKey=unsubscribe`).
+- **العروض الحصرية**: `GetSpecialOffers(ctx)` و `SubscribeSpecialOffer(ctx, index)` و `CancelSpecialOffer(ctx)` لإدارة باقات عروضي سحابياً.
 
 ### 3. كشف الحساب والتحقق التلقائي من التحويلات (CDR & Transfer Verification)
 - **كشف حساب تحويلات الرصيد**: `GetCDRTransferHistory(ctx, page, limit)` لجلب سجل العمليات الواردة والصادرة مع رقم المرسل والمبلغ والتاريخ الدقيق.
@@ -91,8 +92,19 @@ asiacell-go/
 - **إحالات خطوط Yooz**: `GetYoozMGM(ctx)` و `ApplyYoozMGMCode(ctx, code)`.
 - **كروت الألعاب والشحن الرقمي**: `GetEVoucherPackages(ctx)` لتصفح بطاقات PUBG و iTunes و PlayStation.
 
-### 6. شحن كروت التعبئة وحماية الرصيد (Recharge & Protection)
-- **شحن الكارت**: `RechargeVoucher(ctx, phone, voucher, rechargeType)` لشحن الرصيد برمز كارت التعبئة المكون من 14 رقماً.
+### 6. الاشتراكات، الحسابات المتعددة، والـ USSD السحابي (Subscriptions & Multi-Account)
+- **الاشتراكات والخدمات الفعالة**: `GetMySubscriptions(ctx)` للاستعلام المباشر من خوادم آسياسيل عن جميع الخدمات النشطة وتواريخ صلاحيتها وأزرار الإلغاء.
+- **خدمات USSD السحابية التفاعلية**: `GetUSSDMenu(ctx, parentId)` و `SubmitUSSDAction(ctx, params)` لتصفح وتنفيذ خدمات وقوائم الـ USSD عبر السحابة مباشرة.
+- **إدارة الحسابات المتعددة (Multi-Account)**:
+  - `GetLinkedAccounts(ctx)`: جلب الأرقام والخطوط المرتبطة بالحساب.
+  - `AddLinkedAccount(ctx, phone)` و `ConfirmLinkedAccount(ctx, phone, pin)`: ربط خط جديد وتأكيده.
+  - `SwitchActiveAccount(ctx, phone)`: التبديل بين الخطوط لإدارتها بنفس الجلسة.
+  - `RemoveLinkedAccount(ctx, phone)`: حذف ارتباط الخط.
+- **مشاركة البيانات وسقوف الاستهلاك (Data Sharing & Caps)**:
+  - `SetDataCapLimit(ctx, limitMB)`: تعيين سقف استهلاك يومي للبيانات.
+  - `SetBundleShareLimit(ctx, phone, limitMB)`: تحديد سقف ميغابايت لكل خط مشارك.
+- **سجل وتاريخ الباقات**: `GetSubscriptionHistory(ctx)`.
+- **شحن الكارت**: `RechargeVoucher(ctx, phone, voucher, rechargeType)`.
 - **التحكم في حماية الرصيد**: تفعيل أو إلغاء ميزة حماية الرصيد لمنع استهلاك الرصيد الأساسي بعد نفاد باقة الإنترنت (`*223#`).
 - **إرشادات إلغاء الخدمات الإعلانية**: إرشادات إلغاء الخدمات والمحتوى المزعج (299، 4151، 300).
 - **الخدمات الرقمية**: `GetDigitalServices(ctx)`.
@@ -101,7 +113,8 @@ asiacell-go/
 - **قائمة المدن والمحافظات**: `GetCities(ctx)`.
 - **مراكز ووكلاء آسياسيل**: `GetCityShops(ctx, cityName)` مع العناوين وساعات العمل والإحداثيات (GPS).
 - **عجلة الحظ اليومية**: `GetSpinWheelStatus(ctx)` و `PlaySpinWheel(ctx)`.
-- **رصيد الطوارئ ونقاط شكراً**: `GetShukranSummary(ctx)`.
+- **رصيد الطوارئ ونقاط شكراً**: `GetShukranInfo(ctx)` و `RequestShukranCredit(ctx)`.
+- **خدمات التجوال الدولي**: `GetRoamingInfo(ctx)`.
 
 ---
 

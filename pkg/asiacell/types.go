@@ -380,6 +380,23 @@ type AddonCategory struct {
 	Items   []AddonPackage `json:"items"`
 }
 
+type AddOnBundleTag struct {
+	Tag   string `json:"tag"`
+	Title string `json:"title"`
+}
+
+type AddOnTagBundles struct {
+	ScreenTitle string           `json:"screenTitle"`
+	Items       []AddonRawItem   `json:"items"`
+	Tags        []AddOnBundleTag `json:"tags"`
+}
+
+type AddOnTagBundlesResponse struct {
+	Success bool            `json:"success"`
+	Message string          `json:"message"`
+	Data    AddOnTagBundles `json:"data"`
+}
+
 type AddonDetailData struct {
 	Headers []struct {
 		Title           string `json:"title"`
@@ -923,3 +940,115 @@ type EVoucherPackagesResponse struct {
 	Message string                `json:"message"`
 	Data    []EVoucherPackageItem `json:"data"`
 }
+
+// --- Active Subscriptions & Services (الاشتراكات والخدمات الفعالة) ---
+
+type ActionButton struct {
+	Title           FlexString `json:"title"`
+	Icon            FlexString `json:"icon"`
+	Action          FlexString `json:"action"`
+	BackgroundColor FlexString `json:"backgroundColor"`
+	Inverted        bool       `json:"inverted"`
+	Style           FlexString `json:"style"`
+	ViewID          int        `json:"viewId"`
+	Disabled        bool       `json:"disabled"`
+}
+
+type MySubscriptionItem struct {
+	Title        FlexString    `json:"title"`
+	Validity     FlexString    `json:"validity"`
+	ActionButton *ActionButton `json:"actionButton"`
+}
+
+type MySubscriptionsResponse struct {
+	Success    bool                 `json:"success"`
+	Message    string               `json:"message"`
+	Title      string               `json:"title"`
+	NextAction string               `json:"nextAction"`
+	Data       []MySubscriptionItem `json:"data"`
+}
+
+// --- USSD Interactive Cloud Menu (قائمة أوامر USSD التفاعلية عبر السحابة) ---
+
+type USSDAnswerItem struct {
+	ID         int        `json:"id"`
+	Content    FlexString `json:"content"`
+	USSDID     FlexString `json:"ussdId"`
+	SubContent FlexString `json:"subContent"`
+}
+
+type USSDQuestionsResponse struct {
+	Success    bool             `json:"success"`
+	Message    string           `json:"message"`
+	Title      string           `json:"title"`
+	NextAction string           `json:"nextAction"`
+	Data       []USSDAnswerItem `json:"data"`
+}
+
+type USSDResultData struct {
+	Title    FlexString    `json:"title"`
+	Msg      FlexString    `json:"msg"`
+	Image    string        `json:"image"`
+	Positive *ActionButton `json:"positive"`
+	Negative *ActionButton `json:"negative"`
+}
+
+type UssdQAResultResponse struct {
+	Success    bool            `json:"success"`
+	Message    string          `json:"message"`
+	Title      string          `json:"title"`
+	NextAction string          `json:"nextAction"`
+	Data       *USSDResultData `json:"data"`
+}
+
+// --- Active Bundle Details & Action Buttons (/api/v1/profile/bundle/{key}) ---
+
+type BundleDetailItem struct {
+	Title         FlexString     `json:"title"`
+	Label         FlexString     `json:"label"`
+	Volume        float64        `json:"volume"`
+	Unit          FlexString     `json:"unit"`
+	Unlimited     bool           `json:"unlimited"`
+	TotalVolume   float64        `json:"totalVolume"`
+	Validity      FlexString     `json:"validity"`
+	BarColor      FlexString     `json:"barColor"`
+	DetailLabel   FlexString     `json:"detailLabel"`
+	ActionButtons []ActionButton `json:"actionButtons"`
+}
+
+type AccountBundleDetailData struct {
+	Bodies []BundleDetailItem `json:"bodies"`
+}
+
+type ProfileBundleResponse struct {
+	Success    bool                     `json:"success"`
+	Message    string                   `json:"message"`
+	Title      string                   `json:"title"`
+	NextAction string                   `json:"nextAction"`
+	Data       *AccountBundleDetailData `json:"data"`
+}
+
+// --- Multi-Account / Linked Lines Management (/api/v1/map-account) ---
+
+type AccountsResponse struct {
+	Success    bool       `json:"success"`
+	Message    string     `json:"message"`
+	Title      string     `json:"title"`
+	NextAction string     `json:"nextAction"`
+	Data       []string   `json:"data"`
+}
+
+type AccountMapResponse struct {
+	Success    bool       `json:"success"`
+	Message    string     `json:"message"`
+	Title      string     `json:"title"`
+	NextAction string     `json:"nextAction"`
+}
+
+// --- Data Caps & Bundle Limits ---
+
+type SubmitLineLimitResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+

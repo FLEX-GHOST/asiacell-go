@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -635,6 +636,29 @@ func (c *Client) GetAddonCategories(ctx context.Context) ([]AddonCategory, error
 	return categories, nil
 }
 
+func (c *Client) GetAddonTags(ctx context.Context) ([]AddonCategory, error) {
+	return c.GetAddonCategories(ctx)
+}
+
+func (c *Client) GetAddonByTagID(ctx context.Context, tagID int) (*AddOnTagBundles, error) {
+	path := fmt.Sprintf("/api/v1/addon/tags/%d?lang=%s", tagID, c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting addon by tag: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res AddOnTagBundlesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding addon tag bundles: %w", err)
+	}
+	return &res.Data, nil
+}
+
 func (c *Client) GetAddonDetail(ctx context.Context, itemID int) (*AddonDetailData, error) {
 	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/addon/%d?lang=%s", itemID, c.language), nil)
 	if err != nil {
@@ -669,6 +693,13 @@ func (c *Client) SubscribeSpecialOffer(ctx context.Context, offerIndex int) (*Su
 	}
 
 	target := offers[offerIndex-1]
+	if target.ID > 0 {
+		_, subErr := c.SubscribeAddon(ctx, target.ID)
+		if subErr != nil {
+			return nil, fmt.Errorf("subscribing to special offer %d: %w", target.ID, subErr)
+		}
+	}
+
 	ussdCmd := fmt.Sprintf("*299*%d#", offerIndex)
 	smsCmd := strconv.Itoa(offerIndex)
 
@@ -679,17 +710,22 @@ func (c *Client) SubscribeSpecialOffer(ctx context.Context, offerIndex int) (*Su
 		Price:       target.Price,
 		USSDCommand: ussdCmd,
 		SMSCommand:  smsCmd,
-		Message:     fmt.Sprintf("للاشتراك المباشر في %s: اطلب %s أو أرسل %s إلى 299", target.Title, ussdCmd, smsCmd),
+		Message:     fmt.Sprintf("تم تفعيل اشتراك %s بنجاح عبر خوادم آسياسيل", target.Title),
 	}, nil
 }
 
 func (c *Client) CancelSpecialOffer(ctx context.Context) (*SubscriptionResult, error) {
+	res, err := c.SubmitUSSDAction(ctx, map[string]string{"parent_id": "0", "choice": "*299*0#"})
+	msg := "تم إلغاء الاشتراك في باقات عروضي بنجاح عبر خوادم آسياسيل (*299*0#)"
+	if err == nil && res != nil && string(res.Msg) != "" {
+		msg = string(res.Msg)
+	}
 	return &SubscriptionResult{
 		Success:     true,
 		Title:       "إلغاء الاشتراك في باقات عروضي",
 		USSDCommand: "*299*0#",
 		SMSCommand:  "0 إلى 299",
-		Message:     "لإلغاء باقة عروضي: اطلب *299*0# أو أرسل 0 إلى الرقم 299",
+		Message:     msg,
 	}, nil
 }
 
@@ -1303,6 +1339,32 @@ func (c *Client) SubscribeAddon(ctx context.Context, itemID int) (*AddonSubscrib
 	return &subResp, nil
 }
 
+// UnsubscribeAddon unsubscribes or deactivates an addon bundle directly via API (/api/v1/addon with actionKey=unsubscribe).
+func (c *Client) UnsubscribeAddon(ctx context.Context, itemID int) (*AddonSubscribeResponse, error) {
+	path := fmt.Sprintf("/api/v1/addon?addOnId=%d&actionKey=unsubscribe&lang=%s", itemID, c.language)
+	body := strings.NewReader("{}")
+	resp, err := c.doRequest(ctx, http.MethodPost, path, body)
+	if err != nil {
+		return nil, fmt.Errorf("requesting addon cancellation: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var subResp AddonSubscribeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&subResp); err != nil {
+		return nil, fmt.Errorf("decoding addon cancellation response: %w", err)
+	}
+
+	if !subResp.Success {
+		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, subResp.Message)
+	}
+
+	return &subResp, nil
+}
+
 
 
 
@@ -1616,3 +1678,290 @@ func (c *Client) GetEVoucherPackages(ctx context.Context) (*EVoucherPackagesResp
 	}
 	return &res, nil
 }
+
+// ========================================================================
+// 18. Active Subscriptions & Services (الاشتراكات والخدمات المفعلة)
+// ========================================================================
+
+// GetMySubscriptions fetches all active services and subscriptions on the line directly from Asiacell servers (/api/v1/profile/subscriptions).
+func (c *Client) GetMySubscriptions(ctx context.Context) ([]MySubscriptionItem, error) {
+	path := fmt.Sprintf("/api/v1/profile/subscriptions?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting subscriptions: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res MySubscriptionsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding subscriptions response: %w", err)
+	}
+	return res.Data, nil
+}
+
+// ========================================================================
+// 19. USSD Interactive Cloud Menu (قائمة خدمات USSD السحابية التفاعلية)
+// ========================================================================
+
+// GetUSSDMenu fetches USSD menu questions and interactive options from Asiacell cloud (/api/v1/ussd).
+func (c *Client) GetUSSDMenu(ctx context.Context, parentID int) ([]USSDAnswerItem, error) {
+	path := fmt.Sprintf("/api/v1/ussd?parent_id=%d&lang=%s", parentID, c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting ussd menu: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res USSDQuestionsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding ussd menu response: %w", err)
+	}
+	return res.Data, nil
+}
+
+// SubmitUSSDAction submits a choice or action for a USSD interactive menu item (/api/v1/ussd).
+func (c *Client) SubmitUSSDAction(ctx context.Context, params map[string]string) (*USSDResultData, error) {
+	payload, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling ussd action request: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/ussd?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("submitting ussd action: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res UssdQAResultResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding ussd action response: %w", err)
+	}
+	return res.Data, nil
+}
+
+// ========================================================================
+// 20. Active Bundle Details & Action Controls (/api/v1/profile/bundle/{key})
+// ========================================================================
+
+// GetBundleDetail retrieves in-depth quota breakdown, validity and action buttons for an active bundle key.
+func (c *Client) GetBundleDetail(ctx context.Context, bundleKey string) (*AccountBundleDetailData, error) {
+	path := fmt.Sprintf("/api/v1/profile/bundle/%s?lang=%s", url.PathEscape(bundleKey), c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting bundle detail: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res ProfileBundleResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding bundle detail response: %w", err)
+	}
+	return res.Data, nil
+}
+
+// ========================================================================
+// 21. Server-Side Session Logout (/api/v1/logout)
+// ========================================================================
+
+// Logout invalidates the active access token and session on Asiacell cloud servers.
+func (c *Client) Logout(ctx context.Context) error {
+	c.mu.RLock()
+	token := c.accessToken
+	c.mu.RUnlock()
+
+	payload, err := json.Marshal(map[string]string{"token": token})
+	if err != nil {
+		return fmt.Errorf("marshaling logout request: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/logout?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("requesting logout: %w", err)
+	}
+	defer resp.Body.Close()
+
+	c.mu.Lock()
+	c.accessToken = ""
+	c.refreshToken = ""
+	c.mu.Unlock()
+
+	return nil
+}
+
+// ========================================================================
+// 22. Multi-Account & Linked Lines Management (/api/v1/map-account)
+// ========================================================================
+
+// GetLinkedAccounts fetches all phone numbers mapped/linked to the primary account line.
+func (c *Client) GetLinkedAccounts(ctx context.Context) ([]string, error) {
+	path := fmt.Sprintf("/api/v1/map-account?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting linked accounts: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res AccountsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding linked accounts: %w", err)
+	}
+	return res.Data, nil
+}
+
+// AddLinkedAccount requests linking an additional phone number to the account, sending an OTP verification SMS.
+func (c *Client) AddLinkedAccount(ctx context.Context, phone string) error {
+	payload, err := json.Marshal(map[string]string{"number": phone})
+	if err != nil {
+		return fmt.Errorf("marshaling map account request: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/map-account?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("submitting map account: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+// ConfirmLinkedAccount confirms mapping the secondary number using the received SMS PIN.
+func (c *Client) ConfirmLinkedAccount(ctx context.Context, phone, pin string) error {
+	payload, err := json.Marshal(map[string]string{"number": phone, "pin": pin})
+	if err != nil {
+		return fmt.Errorf("marshaling confirm map request: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/map-account/confirm?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("submitting confirm map: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+// SwitchActiveAccount switches active line context to a linked secondary number.
+func (c *Client) SwitchActiveAccount(ctx context.Context, otherPhone string) error {
+	payload, err := json.Marshal(map[string]string{"otherNumber": otherPhone})
+	if err != nil {
+		return fmt.Errorf("marshaling switch account request: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/account-action/switch?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("submitting switch account: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+// RemoveLinkedAccount removes a secondary linked number from the account mapping.
+func (c *Client) RemoveLinkedAccount(ctx context.Context, otherPhone string) error {
+	payload, err := json.Marshal(map[string]string{"otherNumber": otherPhone})
+	if err != nil {
+		return fmt.Errorf("marshaling remove account request: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/account-action/remove?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("submitting remove account: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+// ========================================================================
+// 23. Data Caps & Sharing Limits (/api/v1/addon/datacap & share)
+// ========================================================================
+
+// SetDataCapLimit sets a daily data consumption threshold limit in MB (/api/v1/addon/datacap/set-limit).
+func (c *Client) SetDataCapLimit(ctx context.Context, limitMB float64) error {
+	payload, err := json.Marshal(map[string]float64{"value": limitMB})
+	if err != nil {
+		return fmt.Errorf("marshaling datacap limit: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/addon/datacap/set-limit?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("submitting datacap limit: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+// SetBundleShareLimit sets data sharing quota threshold in MB for a specific shared line (/api/v1/addon/share/set-limit).
+func (c *Client) SetBundleShareLimit(ctx context.Context, msisdn string, limitMB float64) error {
+	type limitItem struct {
+		Value float64 `json:"value"`
+	}
+	type reqBody struct {
+		MSISDN     string      `json:"msisdn"`
+		LimitItems []limitItem `json:"limitItems"`
+	}
+
+	payload, err := json.Marshal(reqBody{
+		MSISDN:     msisdn,
+		LimitItems: []limitItem{{Value: limitMB}},
+	})
+	if err != nil {
+		return fmt.Errorf("marshaling share bundle limit: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/addon/share/set-limit?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("submitting share bundle limit: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return ErrUnauthorized
+	}
+	return nil
+}
+

@@ -7,6 +7,7 @@
 **المواصفات الكاملة لجميع نقاط نهاية HTTP REST API لشركة آسياسيل العراق، مستخرجة ومفحوصة بالكامل مع خوادم الإنتاج.**
 
 [![Specification](https://img.shields.io/badge/Specification-100%25%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
+[![Endpoints](https://img.shields.io/badge/Endpoints-55%20Verified-18181b?style=flat-square)](ENDPOINTS.md)
 [![Protocol](https://img.shields.io/badge/Protocol-HTTPS%2FREST-18181b?style=flat-square)](ENDPOINTS.md)
 [![Client](https://img.shields.io/badge/Go%20Client-asiacell--go-18181b?style=flat-square)](https://github.com/FLEX-GHOST/asiacell-go)
 
@@ -42,25 +43,41 @@
 | **18** | `POST` | `/api/v1/credit-transfer/do-transfer` | `client.ConfirmCreditTransfer(ctx, pid, code)` | تأكيد تحويل الرصيد بإدخال رمز التحقق المرسل إلى الهاتف |
 | **19** | `POST` | `/api/v1/top-up` | `client.RechargeVoucher(ctx, to, code, type)` | شحن وتعبئة كارت آسياسيل عبر كود الكارت (13-14 رقماً) عادي أو إنترنت |
 | **20** | `GET` | `/api/v1/transaction/recharge` | `client.GetRechargeHistory(ctx)` | سجل وتاريخ عمليات شحن الكروت السابقة على الخط |
-| **21** | `GET` | `/api/v2/services/management` | `client.GetServicesManagement(ctx)` | إدارة الخدمات المشترك بها وحالة حماية الرصيد عند انتهاء الباقة (*223#) |
-| **22** | `POST` | `/api/v2/services/action` | `client.ExecuteServiceAction(ctx, svc, act)` | تفعيل أو إيقاف حماية الرصيد وإلغاء الخدمات المزعجة (299/4151/300) |
-| **23** | `GET` | `/api/v1/digital-services` | `client.GetDigitalServices(ctx)` | الخدمات الترفيهية والقيمة المضافة الرقمية |
-| **24** | `GET` | `/api/v1/partners/cities` | `client.GetCities(ctx)` | قائمة بجميع المحافظات والمدن العراقية ومعرفاتها |
-| **25** | `GET` | `/api/v1/shops` | `client.GetCityShops(ctx, cityName)` | مراكز وفروع آسياسيل المعتمدة: العناوين، الإحداثيات، وحالة الفتح/الإغلاق |
-| **26** | `GET` | `/api/v1/spin-wheel` | `client.GetSpinWheelStatus(ctx)` | حالة عجلة الحظ اليومية وما إذا كانت متاحة للدوران |
-| **27** | `POST` | `/api/v1/spin-wheel/play` | `client.PlaySpinWheel(ctx)` | تدوير عجلة الحظ واستلام الجائزة اليومية (ميغابايت أو رصيد مجاني) |
-| **28** | `GET` | `/api/v2/vanity/classes` | `client.GetVanityClasses(ctx)` | استعراض فئات وتصنيفات الأرقام المميزة (الماسية، الذهبية، الفضية) وأسعارها |
-| **29** | `GET` | `/api/v2/vanity` | `client.SearchVanityNumbers(ctx, pat, class, p, l)` | البحث في الأرقام المميزة المتاحة للبيع بنمط أو فئة معينة |
-| **30** | `GET` | `/api/v2/vanity/{msisdn}/detail` | `client.GetVanityDetail(ctx, msisdn)` | تفاصيل وسعر وشروط حجز رقم مميز محدد |
-| **31** | `POST` | `/api/v2/vanity` | `client.ReserveVanityNumber(ctx, msisdn, classId)` | حجز الرقم المميز مباشرة باسم المشترك وتوليد معرف العملية |
-| **32** | `POST` | `/api/v1/addon/send-as-gift` | `client.SendGiftAddon(ctx, addonId, to)` | شراء باقة إنترنت أو اتصالات وإهداؤها لرقم آخر بخصم من الرصيد |
-| **33** | `GET` | `/api/v1/resolution-center/categories` | `client.GetTicketCategories(ctx)` | أقسام وتصنيفات الشكاوى الفنية المعتمدة في آسياسيل |
-| **34** | `GET` | `/api/v1/resolution-center` | `client.GetTickets(ctx)` | سجل تذاكر الشكاوى المفتوحة وتحديثات مسار المعالجة |
-| **35** | `POST` | `/api/v1/resolution-center` | `client.CreateTicket(ctx, catId, desc)` | فتح وإرسال تذكرة شكوى رسمية جديدة لإدارة العمليات والدعم |
-| **36** | `GET` | `/api/v1/compensation` | `client.CheckCompensation(ctx)` | فحص استحقاق الخط للتعويضات الرسمية (جيجابايت أو رصيد مجاني) |
-| **37** | `GET` | `/api/v1/yooz-mgm` | `client.GetYoozMGM(ctx)` | استخراج كود الإحالة وإحصائيات دعوة الأصدقاء لخطوط Yooz |
-| **38** | `POST` | `/api/v1/yooz-mgm/apply-code` | `client.ApplyYoozMGMCode(ctx, code)` | تفعيل كود دعوة للحصول على البونص والمكافآت المجانية |
-| **39** | `GET` | `/api/v2/e-voucher/packages` | `client.GetEVoucherPackages(ctx)` | تصفح كروت الألعاب والشحن الرقمي (PUBG, PlayStation, iTunes) |
+| **21** | `GET` | `/api/v1/profile/subscriptions` | `client.GetMySubscriptions(ctx)` | استعلام جميع الخدمات والاشتراكات الفعالة على الخط وصلاحياتها مباشرة من الخادم |
+| **22** | `POST` | `/api/v1/ussd` | `client.SubmitUSSDAction(ctx, params)` | تنفيذ وتفعيل أوامر وخدمات الـ USSD السحابية التفاعلية عبر HTTP مباشرة |
+| **23** | `GET` | `/api/v1/ussd` | `client.GetUSSDMenu(ctx, parentID)` | تصفح واستعلام قوائم الـ USSD التفاعلية السحابية من الخادم |
+| **24** | `GET` | `/api/v1/transaction/bundle` | `client.GetSubscriptionHistory(ctx)` | سجل وتاريخ عمليات شراء واشتراك الباقات السابقة على الخط |
+| **25** | `GET` | `/api/v1/digital-services` | `client.GetDigitalServices(ctx)` | الخدمات الترفيهية والقيمة المضافة الرقمية |
+| **26** | `GET` | `/api/v1/partners/cities` | `client.GetCities(ctx)` | قائمة بجميع المحافظات والمدن العراقية ومعرفاتها |
+| **27** | `GET` | `/api/v1/shops` | `client.GetCityShops(ctx, cityID)` | مراكز وفروع آسياسيل المعتمدة: العناوين، الإحداثيات، وحالة الفتح/الإغلاق |
+| **28** | `GET` | `/api/v1/spin-wheel` | `client.GetSpinWheelStatus(ctx)` | حالة عجلة الحظ اليومية وما إذا كانت متاحة للدوران |
+| **29** | `POST` | `/api/v1/spin-wheel/play` | `client.PlaySpinWheel(ctx)` | تدوير عجلة الحظ واستلام الجائزة اليومية (ميغابايت أو رصيد مجاني) |
+| **30** | `GET` | `/api/v2/vanity/classes` | `client.GetVanityClasses(ctx)` | استعراض فئات وتصنيفات الأرقام المميزة (الماسية، الذهبية، الفضية) وأسعارها |
+| **31** | `GET` | `/api/v2/vanity` | `client.SearchVanityNumbers(ctx, pat, class, p, l)` | البحث في الأرقام المميزة المتاحة للبيع بنمط أو فئة معينة |
+| **32** | `GET` | `/api/v2/vanity/{msisdn}/detail` | `client.GetVanityDetail(ctx, msisdn)` | تفاصيل وسعر وشروط حجز رقم مميز محدد |
+| **33** | `POST` | `/api/v2/vanity` | `client.ReserveVanityNumber(ctx, msisdn, classId)` | حجز الرقم المميز مباشرة باسم المشترك وتوليد معرف العملية |
+| **34** | `POST` | `/api/v1/addon/send-as-gift` | `client.SendGiftAddon(ctx, addonId, to)` | شراء باقة إنترنت أو اتصالات وإهداؤها لرقم آخر بخصم من الرصيد |
+| **35** | `GET` | `/api/v1/resolution-center/categories` | `client.GetTicketCategories(ctx)` | أقسام وتصنيفات الشكاوى الفنية المعتمدة في آسياسيل |
+| **36** | `GET` | `/api/v1/resolution-center` | `client.GetTickets(ctx)` | سجل تذاكر الشكاوى المفتوحة وتحديثات مسار المعالجة |
+| **37** | `POST` | `/api/v1/resolution-center` | `client.CreateTicket(ctx, catId, desc)` | فتح وإرسال تذكرة شكوى رسمية جديدة لإدارة العمليات والدعم |
+| **38** | `GET` | `/api/v1/compensation` | `client.CheckCompensation(ctx)` | فحص استحقاق الخط للتعويضات الرسمية (جيجابايت أو رصيد مجاني) |
+| **39** | `GET` | `/api/v1/yooz-mgm` | `client.GetYoozMGM(ctx)` | استخراج كود الإحالة وإحصائيات دعوة الأصدقاء لخطوط Yooz |
+| **40** | `POST` | `/api/v1/yooz-mgm/apply-code` | `client.ApplyYoozMGMCode(ctx, code)` | تفعيل كود دعوة للحصول على البونص والمكافآت المجانية |
+| **41** | `GET` | `/api/v2/e-voucher/packages` | `client.GetEVoucherPackages(ctx)` | تصفح كروت الألعاب والشحن الرقمي (PUBG, PlayStation, iTunes) |
+| **42** | `GET` | `/api/v1/notifications` | `client.GetNotifications(ctx)` | جلب صندوق الإشعارات والتنبيهات المستلمة من آسياسيل |
+| **43** | `GET` | `/api/v1/promotions` | `client.GetPromotions(ctx)` | العروض الترويجية والحملات الإعلانية الحالية |
+| **44** | `GET` | `/api/v1/shukran` | `client.GetShukranInfo(ctx)` | فحص خدمة شكراً لسلفة الرصيد أو الإنترنت عند الطوارئ |
+| **45** | `GET` | `/api/v1/roaming` | `client.GetRoamingInfo(ctx)` | استعلام خدمات وباقات التجوال الدولي المتاحة للخط |
+| **46** | `POST` | `/api/v1/addon` | `client.UnsubscribeAddon(ctx, addonID)` | إلغاء الاشتراك وإيقاف التجديد التلقائي لأي باقة برمجياً (`actionKey=unsubscribe`) |
+| **47** | `GET` | `/api/v1/profile/bundle/{key}` | `client.GetBundleDetail(ctx, key)` | تفاصيل الباقة الفعالة وسجل الحصص المستهلكة وأزرار الإجراءات |
+| **48** | `POST` | `/api/v1/logout` | `client.Logout(ctx)` | تسجيل الخروج وإبطال التوكن رسمياً على خوادم آسياسيل السحابية |
+| **49** | `GET` | `/api/v1/map-account` | `client.GetLinkedAccounts(ctx)` | استعلام كافة الأرقام والخطوط الإضافية المرتبطة بالحساب |
+| **50** | `POST` | `/api/v1/map-account` | `client.AddLinkedAccount(ctx, phone)` | إرسال طلب ربط خط إضافي للحساب وتوليد كود OTP للتحقق |
+| **51** | `POST` | `/api/v1/map-account/confirm` | `client.ConfirmLinkedAccount(ctx, phone, pin)` | تأكيد ربط الرقم الإضافي وإدراجه ضمن حسابات المستخدم |
+| **52** | `POST` | `/api/v1/account-action/switch` | `client.SwitchActiveAccount(ctx, phone)` | التبديل بين الخطوط المرتبطة لإدارتها بشكل فوري |
+| **53** | `POST` | `/api/v1/account-action/remove` | `client.RemoveLinkedAccount(ctx, phone)` | فك وحذف ارتباط رقم إضافي من الحساب |
+| **54** | `POST` | `/api/v1/addon/datacap/set-limit` | `client.SetDataCapLimit(ctx, limitMB)` | تعيين سقف استهلاك البيانات اليومي للخط بالكامل لمنع استنزاف الرصيد |
+| **55** | `POST` | `/api/v1/addon/share/set-limit` | `client.SetBundleShareLimit(ctx, phone, limitMB)` | تحديد سقف ميغابايت لكل رقم مشارك في باقة الإنترنت المشتركة |
 
 ---
 
@@ -148,7 +165,30 @@ X-ODP-API-KEY: 1ccbc4c913bc4ce785a0a2de444aa0d6
 
 ---
 
-### 2.2 سوق الأرقام المميزة (Vanity VIP Numbers)
+### 2.2 الاشتراكات المفعلة وخدمات الـ USSD السحابية (Subscriptions & USSD API)
+
+- `GET /api/v1/profile/subscriptions`: استعلام الخادم الرسمي عن جميع الخدمات النشطة على الخط مع تواريخ الصلاحية وأزرار الإلغاء (`MySubscriptionsResponse`).
+- `GET /api/v1/ussd?parent_id={id}`: استعلام قائمة خيارات أوامر الـ USSD السحابية التفاعلية من الخادم.
+- `POST /api/v1/ussd`: إرسال وتأكيد خيار أو أمر USSD عبر السحابة مباشرة دون الحاجة للاتصال من الهاتف.
+
+<div dir="ltr" align="left">
+
+```http
+POST /api/v1/ussd
+```
+
+```json
+{
+  "parent_id": "0",
+  "choice": "1"
+}
+```
+
+</div>
+
+---
+
+### 2.3 سوق الأرقام المميزة (Vanity VIP Numbers)
 
 - `GET /api/v2/vanity/classes`: استعراض فئات الأرقام المميزة (الماسية، الذهبية، الفضية، البرونزية).
 - `GET /api/v2/vanity?msisdn={pattern}&classId={id}&page={p}&limit={l}`: البحث عن أرقام مميزة بنمط محدد وأسعارها.
@@ -171,7 +211,7 @@ POST /api/v2/vanity
 
 ---
 
-### 2.3 إهداء الباقات للغير (Send Addon as a Gift)
+### 2.4 إهداء الباقات للغير (Send Addon as a Gift)
 
 - **الغرض**: شراء باقة إنترنت أو مكالمات وإرسالها كهدية لأي رقم آسياسيل آخر، مع الخصم المباشر من رصيد الشريحة المرسلة.
 
@@ -192,7 +232,7 @@ POST /api/v1/addon/send-as-gift
 
 ---
 
-### 2.4 نظام الشكاوى والتذاكر الفنية (Resolution Center)
+### 2.5 نظام الشكاوى والتذاكر الفنية (Resolution Center)
 
 - `GET /api/v1/resolution-center/categories`: جلب تصنيفات المشاكل والشكاوى المعتمدة.
 - `GET /api/v1/resolution-center`: استعراض التذاكر السابقة المفتوحة ومسار معالجتها.
@@ -215,7 +255,7 @@ POST /api/v1/resolution-center
 
 ---
 
-### 2.5 نظام التعويضات التلقائي (Compensation System)
+### 2.6 نظام التعويضات التلقائي (Compensation System)
 
 <div dir="ltr" align="left">
 
@@ -229,7 +269,7 @@ GET /api/v1/compensation
 
 ---
 
-### 2.6 خطوط الشباب Yooz (MGM Referral Program)
+### 2.7 خطوط الشباب Yooz (MGM Referral Program)
 
 - `GET /api/v1/yooz-mgm`: استخراج كود الإحالة ورابط المشاركة وعدد الإحالات الناجحة.
 
@@ -250,7 +290,7 @@ POST /api/v1/yooz-mgm/apply-code
 
 ---
 
-### 2.7 كروت الألعاب والشحن الرقمي (E-Vouchers)
+### 2.8 كروت الألعاب والشحن الرقمي (E-Vouchers)
 
 <div dir="ltr" align="left">
 
@@ -264,7 +304,7 @@ GET /api/v2/e-voucher/packages?recharge-type=1
 
 ---
 
-### 2.8 تسجيل الدخول وإدارة الجلسات (Authentication)
+### 2.9 تسجيل الدخول وإدارة الجلسات (Authentication)
 
 <div dir="ltr" align="left">
 
