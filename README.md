@@ -7,7 +7,7 @@
 **Production-grade, zero-dependency Go SDK for Asiacell Iraq APIs**
 
 [![Go Version](https://img.shields.io/badge/Go-1.26+-18181b?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
-[![Verified Endpoints](https://img.shields.io/badge/Endpoints-24%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
+[![Verified Endpoints](https://img.shields.io/badge/Endpoints-39%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
 [![Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(Stdlib)-18181b?style=flat-square)](https://pkg.go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-18181b?style=flat-square)](LICENSE)
 
@@ -37,11 +37,13 @@ asiacell-go/
 │   ├── 01_auth_and_session/        # تسجيل الدخول وحفظ واستعادة الجلسة وتجاوز الكابتشا
 │   ├── 02_account_and_profile/     # فحص الرصيد والباقات المتبقية وتفاصيل المستخدم
 │   ├── 03_bundles_and_4g/          # تصفح باقات 4G المفتوحة والعروض الخاصة والاشتراك
-│   ├── 04_credit_transfer/         # تحويل الرصيد وتأكيده والتحقق من استلام التحويلات
+│   ├── 04_credit_transfer/         # تحويل الرصيد وتأكيده بالرمز السري
 │   ├── 05_recharge_voucher/        # شحن كروت الرصيد والإنترنت وسجل التعبئة
 │   ├── 06_services_management/     # حماية رصيد الإنترنت وإلغاء الاشتراكات والخدمات الرقمية
 │   ├── 07_shops_and_governorates/  # تصفح محافظات العراق وفروع ومراكز آسياسيل المعتمدة
 │   ├── 08_spin_wheel_and_rewards/  # عجلة الحظ اليومية ورصيد الطوارئ (شكراً) وباقات التجوال
+│   ├── 09_cdr_incoming_transfer_verification/ # التحقق التلقائي من استلام تحويلات الرصيد عبر سجل CDR
+│   ├── 10_advanced_features/       # سوق الأرقام المميزة، إهداء الباقات، تذاكر الدعم، والتعويضات
 │   ├── interactive_cli/            # تطبيق تفاعلي متكامل عبر موجه الأوامر (Terminal CLI)
 │   └── README.md                   # دليل تشغيل واستخدام كافة الأمثلة الجاهزة
 └── go.mod
@@ -51,7 +53,7 @@ asiacell-go/
 
 ## ميزات وقدرات المكتبة (Features)
 
-المكتبة تغطي 24 واجهة برمجية (Endpoints) رسمية تم فحصها والتحقق من سلامتها بنسبة 100%:
+المكتبة تغطي 39 واجهة برمجية (Endpoints) رسمية تم فحصها والتحقق من سلامتها بنسبة 100%:
 
 ### 1. المصادقة وإدارة الجلسات (Authentication & Sessions)
 - **طلب رمز التحقق (SMS OTP)**: `Login(ctx, phone)` لإرسال رمز الدخول مباشرة للهاتف.
@@ -69,30 +71,37 @@ asiacell-go/
 - **الاشتراك المباشر بالباقات**: `SubscribeAddon(ctx, addonID)` لتفعيل أي باقة فورياً من الرصيد.
 - **العروض الحصرية**: `GetSpecialOffers(ctx)` لجلب العروض المخصصة لخط المستخدم.
 
-### 3. تحويل الرصيد والتحقق المالي (Credit Transfer & Verification)
-- **تحويل الرصيد (P2P)**: `StartCreditTransfer(ctx, receiverPhone, amount)` لبدء التحويل وإرسال كود التأكيد.
-- **تأكيد التحويل**: `ConfirmCreditTransfer(ctx, pid, passcode)` لتنفيذ التحويل بالرمز السري.
-- **تحويل مباشر للمحفظة**: `TransferToWallet(ctx, amount)` لدعم التحويل إلى المحفظة المعتمدة.
-- **التحقق التلقائي من استلام التحويلات**: `VerifyIncomingTransfer(ctx, targetPhone, minAmount)` للتحقق البرمجي التلقائي من وصول الرصيد إلى رقمك/محفظتك مع منع التكرار (De-duplication) لتأكيد المعاملات المالية والمبيعات تلقائياً.
-- **سجلات العمليات**: `GetTransferHistory(ctx)` و `GetRechargeHistory(ctx)` و `GetSubscriptionHistory(ctx)`.
+### 3. كشف الحساب والتحقق التلقائي من التحويلات (CDR & Transfer Verification)
+- **كشف حساب تحويلات الرصيد**: `GetCDRTransferHistory(ctx, page, limit)` لجلب سجل العمليات الواردة والصادرة مع رقم المرسل والمبلغ والتاريخ الدقيق.
+- **تفعيل كشف الحساب**: `SendCDROTP(ctx)` و `ConfirmCDROTP(ctx, otp)`.
+- **التحقق التلقائي المباشر**: `VerifyIncomingTransfer(ctx, senderPhone, minAmount)` للتحقق البرمجي التلقائي والفوري من استلام حوالة رصيد من زبون بدون أي تدخل يدوي للأدمن.
+- **تحويل الرصيد (P2P)**: `StartCreditTransfer(ctx, to, amount)` و `ConfirmCreditTransfer(ctx, pid, code)`.
+- **سجلات العمليات السابقة**: `GetTransferHistory(ctx)` و `GetRechargeHistory(ctx)`.
 
-### 4. شحن كروت التعبئة (Voucher Recharge)
-- **شحن الكارت**: `RechargeVoucher(ctx, phone, voucher, rechargeType)` لشحن الرصيد برمز كارت التعبئة المكون من 14 رقماً (كروت الرصيد العادية وكروت الإنترنت).
+### 4. سوق الأرقام المميزة وإهداء الباقات (Vanity Numbers & Gifting)
+- **فئات الأرقام المميزة**: `GetVanityClasses(ctx)` لتصفح تصنيفات VIP (الماسية، الذهبية، الفضية).
+- **البحث في الأرقام المعروضة للبيع**: `SearchVanityNumbers(ctx, pattern, classId, page, limit)` للبحث عن أرقام بنمط أو فئة معينة مع أسعارها.
+- **تفاصيل الرقم المميز**: `GetVanityDetail(ctx, msisdn)`.
+- **حجز الرقم المميز**: `ReserveVanityNumber(ctx, msisdn, classId)`.
+- **إهداء الباقات للغير**: `SendGiftAddon(ctx, addonId, receiverPhone)` لشراء باقة إنترنت أو مكالمات وإرسالها كهدية لأي رقم مع الخصم من الرصيد.
 
-### 5. حماية الرصيد وإدارة الخدمات (Balance Protection & Services)
-- **استعراض الخدمات المفعلة**: `GetServicesManagement(ctx)`.
-- **التحكم في حماية الرصيد**: تفعيل أو إلغاء ميزة حماية الرصيد لمنع استهلاك الرصيد الأساسي بعد نفاد باقة الإنترنت (المكافئة لـ `*223#`).
-- **إرشادات إلغاء الخدمات الإعلانية**: توفير تعليمات إلغاء الخدمات الإعلانية والمحتوى المزعج عبر الرسائل القصيرة (299، 4151، 300).
-- **الخدمات الرقمية**: `GetDigitalServices(ctx)` لاستعراض الخدمات الترفيهية والمحتوى.
+### 5. الدعم الفني والتعويضات والخدمات الرقمية (Tickets, Compensation & E-Cards)
+- **نظام التذاكر والشكاوى**: `GetTicketCategories(ctx)` و `GetTickets(ctx)` و `CreateTicket(ctx, categoryId, description)` لفتح ومتابعة تذاكر الدعم الفني لدى آسياسيل.
+- **فحص التعويضات**: `CheckCompensation(ctx)` للاستعلام عن التعويضات الرسمية المتاحة للخط واستلامها.
+- **إحالات خطوط Yooz**: `GetYoozMGM(ctx)` و `ApplyYoozMGMCode(ctx, code)`.
+- **كروت الألعاب والشحن الرقمي**: `GetEVoucherPackages(ctx)` لتصفح بطاقات PUBG و iTunes و PlayStation.
 
-### 6. المحافظات والفروع المعتمدة (Governorates & Certified Shops)
-- **قائمة المدن والمحافظات**: `GetCities(ctx)` لجلب جميع محافظات العراق (بغداد، أربيل، البصرة، النجف، كربلاء، السليمانية، كركوك...).
-- **مراكز ووكلاء آسياسيل**: `GetCityShops(ctx, cityName)` لجلب العناوين الدقيقة، ساعات العمل، حالة الفرع (مفتوح حالياً أو مغلق)، وأرقام الهواتف والإحداثيات الجغرافية (GPS).
+### 6. شحن كروت التعبئة وحماية الرصيد (Recharge & Protection)
+- **شحن الكارت**: `RechargeVoucher(ctx, phone, voucher, rechargeType)` لشحن الرصيد برمز كارت التعبئة المكون من 14 رقماً.
+- **التحكم في حماية الرصيد**: تفعيل أو إلغاء ميزة حماية الرصيد لمنع استهلاك الرصيد الأساسي بعد نفاد باقة الإنترنت (`*223#`).
+- **إرشادات إلغاء الخدمات الإعلانية**: إرشادات إلغاء الخدمات والمحتوى المزعج (299، 4151، 300).
+- **الخدمات الرقمية**: `GetDigitalServices(ctx)`.
 
-### 7. عجلة الحظ والمكافآت (Spin Wheel & Shukran Loyalty)
-- **عجلة الحظ اليومية**: `GetSpinWheelStatus(ctx)` لفحص إمكانية التدوير، و `PlaySpinWheel(ctx)` للمطالبة بالجائزة اليومية (إنترنت أو رصيد مجاني).
-- **رصيد الطوارئ ونقاط شكراً**: `GetShukranSummary(ctx)` للاستعلام عن نقاط المكافآت وخدمات رصيد الطوارئ.
-- **باقات التجوال الدولي**: `GetRoamingBundles(ctx)` لاستعراض باقات السفر والتجوال.
+### 7. المحافظات والفروع وعجلة الحظ (Shops & Spin Wheel)
+- **قائمة المدن والمحافظات**: `GetCities(ctx)`.
+- **مراكز ووكلاء آسياسيل**: `GetCityShops(ctx, cityName)` مع العناوين وساعات العمل والإحداثيات (GPS).
+- **عجلة الحظ اليومية**: `GetSpinWheelStatus(ctx)` و `PlaySpinWheel(ctx)`.
+- **رصيد الطوارئ ونقاط شكراً**: `GetShukranSummary(ctx)`.
 
 ---
 
@@ -182,63 +191,27 @@ func main() {
 }
 ```
 
-### 4. استعراض باقات 4G المفتوحة والاشتراك
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"log"
-
-	"github.com/FLEX-GHOST/asiacell-go/pkg/asiacell"
-)
-
-func main() {
-	client, _ := asiacell.NewClient()
-	client.LoadSessionFromFile("session.json")
-	ctx := context.Background()
-
-	bundles, err := client.GetUnlimited4GBundles(ctx)
-	if err != nil {
-		log.Fatalf("error: %v", err)
-	}
-
-	for _, b := range bundles {
-		fmt.Printf("الباقة: %s | السعر: %s د.ع | الكود: %s\n", b.Title, b.Price, b.ID)
-	}
-}
-```
-
 ---
 
 ## دليل الأمثلة الجاهزة (Examples Suite)
-
-يتضمن المشروع مجلداً غنياً بالأمثلة المستقلة في `examples/`، تم إعداد كل مثال ليعمل بشكل فوري:
 
 | المجلد | الوصف | أمر التشغيل المباشر |
 | :--- | :--- | :--- |
 | **`01_auth_and_session`** | دورة تسجيل الدخول الكاملة عبر SMS، تدوير هوية الجهاز لتجاوز الكابتشا، وحفظ واستيراد الجلسات. | `go run examples/01_auth_and_session/main.go` |
 | **`02_account_and_profile`** | الاستعلام عن الرصيد، الباقات النشطة، الدقائق، الرسائل، وتفاصيل الحساب الشخصي. | `go run examples/02_account_and_profile/main.go` |
 | **`03_bundles_and_4g`** | استعراض باقات 4G المفتوحة والعروض الخاصة وتصنيفات الاشتراكات وتفعيلها. | `go run examples/03_bundles_and_4g/main.go` |
-| **`04_credit_transfer`** | تحويل الرصيد وتأكيده بالـ OTP، والتحقق التلقائي الذكي من وصول الرصيد للمحفظة. | `go run examples/04_credit_transfer/main.go` |
+| **`04_credit_transfer`** | تحويل الرصيد وتأكيده بالـ OTP، والتحويل المباشر للمحفظة. | `go run examples/04_credit_transfer/main.go` |
 | **`05_recharge_voucher`** | شحن الرصيد بكروت التعبئة المكونة من 14 رقماً، واستعراض سجل عمليات الشحن. | `go run examples/05_recharge_voucher/main.go` |
 | **`06_services_management`** | إدارة حماية رصيد الإنترنت (*223#)، إرشادات إلغاء الخدمات الإعلانية (299/4151/300). | `go run examples/06_services_management/main.go` |
 | **`07_shops_and_governorates`** | استعراض المحافظات العراقية، وفروع ومراكز مبيعات آسياسيل المعتمدة ومواعيد عملها. | `go run examples/07_shops_and_governorates/main.go` |
 | **`08_spin_wheel_and_rewards`** | التحقق من تدوير عجلة الحظ اليومية، رصيد الطوارئ ونقاط شكراً، وباقات التجوال الدولي. | `go run examples/08_spin_wheel_and_rewards/main.go` |
+| **`09_cdr_incoming_transfer_verification`** | التحقق التلقائي من تحويلات الرصيد عبر سجل كشف الحساب CDR بدون أدمن. | `go run examples/09_cdr_incoming_transfer_verification/main.go` |
+| **`10_advanced_features`** | سوق الأرقام المميزة، إهداء الباقات للغير، تذاكر الدعم الفني، التعويضات، وكروت الألعاب. | `go run examples/10_advanced_features/main.go` |
 | **`interactive_cli`** | تطبيق تيرمينال تفاعلي شامل يتيح تجربة جميع ميزات المكتبة عبر قائمة نصية مرئية. | `go run examples/interactive_cli/main.go` |
-
-لتشغيل التطبيق التفاعلي الشامل:
-```bash
-go run examples/interactive_cli/main.go
-```
 
 ---
 
 ## الاختبارات وضمان الجودة (Testing & Quality)
-
-المكتبة تخضع لاختبارات صارمة تضمن استقرار ونظافة الكود، وعدم وجود أي تسريب للذاكرة أو الـ Goroutines:
 
 ```bash
 # تشغيل جميع اختبارات الحزمة
@@ -250,17 +223,8 @@ go vet ./...
 
 ---
 
-## الأمان ومعايير الذاكرة (Security & Memory Policy)
-
-- **صفر اعتمادات خارجية**: الاعتماد الكامل على مكتبة Go القياسية لحماية تامة من ثغرات سلاسل التوريد.
-- **تشفير الاتصال**: جميع الاتصالات مشفرة بـ HTTPS بالكامل ومطابقة للمواصفات الرسمية لشبكة آسياسيل.
-- **إدارة الذاكرة والاتصالات**: غلق قاطع لجميع اتصالات الشبكة ومقابض الملفات عبر `defer` لمنع أي تسريب للموارد.
-
----
-
 ## الترخيص وإخلاء المسؤولية (License & Legal Disclaimer)
 
 - **الترخيص**: هذا المشروع مرخص ومفتوح المصدر بموجب رخصة [MIT](LICENSE).
 - **العلامة التجارية**: اسم "Asiacell" وشعارها علامتان تجاريتان مسجلتان لشركة آسياسيل للاتصالات (Asiacell Telecom PJSC).
 - **إخلاء المسؤولية**: هذا المشروع (`asiacell-go`) هو مكتبة برمجية مستقلة غير رسمية تم تطويرها لأغراض تعليمية وتطويرية، وليست تابعة لشركة آسياسيل أو معتمدة منها بشكل رسمي.
-
