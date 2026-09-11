@@ -1227,3 +1227,565 @@ type TicketFormResponse struct {
 	Data    []TicketFormField `json:"data"`
 }
 
+// --- FanZone & Gaming ---
+
+type FanZoneHomeData struct {
+	Title            string           `json:"title"`
+	CompetitionID    string           `json:"competitionId"`
+	Banner           string           `json:"banner"`
+	ActionButton     PromotionButton  `json:"actionButton"`
+	TermsLink        string           `json:"termsLink"`
+	Status           string           `json:"status"`
+}
+
+type FanZoneHomeResponse struct {
+	Success bool             `json:"success"`
+	Message string           `json:"message"`
+	Data    *FanZoneHomeData `json:"data"`
+}
+
+type FanZoneKickAndWinData struct {
+	BackgroundImage string          `json:"backgroundImage"`
+	Image           string          `json:"image"`
+	AttemptsLeft    int             `json:"attemptsLeft"`
+	MaxAttempts     int             `json:"maxAttempts"`
+	ActionButton    PromotionButton `json:"actionButton"`
+}
+
+type FanZoneKickAndWinResponse struct {
+	Success bool                   `json:"success"`
+	Message string                 `json:"message"`
+	Data    *FanZoneKickAndWinData `json:"data"`
+}
+
+type FanZoneRewardData struct {
+	RewardID    string `json:"rewardId"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	TicketID    string `json:"ticketId"`
+	RewardType  string `json:"rewardType"`
+	Value       string `json:"value"`
+}
+
+type FanZoneRewardResponse struct {
+	Success bool               `json:"success"`
+	Message string             `json:"message"`
+	Data    *FanZoneRewardData `json:"data"`
+}
+
+type FanZoneLeaderItem struct {
+	Rank     int    `json:"rank"`
+	Nickname string `json:"nickname"`
+	Score    int    `json:"score"`
+	Avatar   string `json:"avatar"`
+}
+
+type FanZoneLeaderBoardData struct {
+	CompetitionID string              `json:"competitionId"`
+	Leaders       []FanZoneLeaderItem `json:"leaders"`
+	UserRank      int                 `json:"userRank"`
+	UserScore     int                 `json:"userScore"`
+}
+
+type FanZoneLeaderBoardResponse struct {
+	Success bool                    `json:"success"`
+	Message string                  `json:"message"`
+	Data    *FanZoneLeaderBoardData `json:"data"`
+}
+
+type FanZoneMatchPredictItem struct {
+	MatchID   string `json:"matchId"`
+	TeamA     string `json:"teamA"`
+	TeamB     string `json:"teamB"`
+	Date      string `json:"date"`
+	ScoreA    int    `json:"scoreA"`
+	ScoreB    int    `json:"scoreB"`
+	Predicted bool   `json:"predicted"`
+}
+
+type FanZonePredictData struct {
+	CompetitionID string                    `json:"competitionId"`
+	Matches       []FanZoneMatchPredictItem `json:"matches"`
+}
+
+type FanZonePredictResponse struct {
+	Success bool                `json:"success"`
+	Message string              `json:"message"`
+	Data    *FanZonePredictData `json:"data"`
+}
+
+type FanZonePrizeItem struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Image       string `json:"image"`
+	Description string `json:"description"`
+}
+
+type FanZoneGrandPrizesData struct {
+	Prizes []FanZonePrizeItem `json:"prizes"`
+}
+
+type FanZoneGrandPrizesResponse struct {
+	Success bool                    `json:"success"`
+	Message string                  `json:"message"`
+	Data    *FanZoneGrandPrizesData `json:"data"`
+}
+
+type FanZoneRewardsHistoryData struct {
+	History []FanZoneRewardData `json:"history"`
+}
+
+type FanZoneRewardsHistoryResponse struct {
+	Success bool                       `json:"success"`
+	Message string                     `json:"message"`
+	Data    *FanZoneRewardsHistoryData `json:"data"`
+}
+
+type NicknameData struct {
+	Nickname string `json:"nickname"`
+	Count    int    `json:"count"`
+	Max      int    `json:"max"`
+}
+
+type NicknameResponse struct {
+	Success bool          `json:"success"`
+	Message string        `json:"message"`
+	Data    *NicknameData `json:"data"`
+}
+
+// --- Asiacell Partners & Discounts Directory ---
+
+type EOCategory struct {
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	Icon         string `json:"icon"`
+	TotalPartner int    `json:"totalPartner"`
+}
+
+type EOCategoryResponse struct {
+	Success bool         `json:"success"`
+	Message string       `json:"message"`
+	Data    []EOCategory `json:"data"`
+}
+
+type EOCity struct {
+	ID            int    `json:"id"`
+	Name          string `json:"name"`
+	Icon          string `json:"icon"`
+	TotalCategory int    `json:"totalCategory"`
+}
+
+type EOCityResponse struct {
+	Success bool     `json:"success"`
+	Message string   `json:"message"`
+	Data    []EOCity `json:"data"`
+}
+
+type EOPartner struct {
+	ID            int      `json:"id"`
+	Name          string   `json:"name"`
+	Logo          string   `json:"logo"`
+	Address       string   `json:"address"`
+	CityName      string   `json:"cityName"`
+	CategoryName  string   `json:"categoryName"`
+	Phone         string   `json:"phone"`
+	Email         string   `json:"email"`
+	Website       string   `json:"website"`
+	DiscountValue float64  `json:"discountValue"`
+	Discounts     []string `json:"discounts"`
+	Lat           float64  `json:"lat"`
+	Lng           float64  `json:"lng"`
+	IsVisible     bool     `json:"isVisible"`
+}
+
+type EOPartnerResponse struct {
+	Success bool        `json:"success"`
+	Message string      `json:"message"`
+	Data    []EOPartner `json:"data"`
+}
+
+type PartnerRegisterRequest struct {
+	Name       string   `json:"name"`
+	Phone      string   `json:"phone"`
+	Email      string   `json:"email"`
+	CityID     int      `json:"cityId"`
+	CategoryID int      `json:"categoryId"`
+	Address    string   `json:"address"`
+	Discounts  []string `json:"discounts"`
+}
+
+// --- Yooz (Avocado) Platform ---
+
+type BannerItem struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Image    string `json:"image"`
+	URL      string `json:"url"`
+	DeepLink string `json:"deeplink"`
+}
+
+type YoozHomeData struct {
+	Title        string          `json:"title"`
+	Balance      string          `json:"balance"`
+	Expiry       string          `json:"expiry"`
+	InternetMB   float64         `json:"internetMb"`
+	ActionButton PromotionButton `json:"actionButton"`
+	Banners      []BannerItem    `json:"banners"`
+}
+
+type YoozHomeResponse struct {
+	Success bool          `json:"success"`
+	Message string        `json:"message"`
+	Data    *YoozHomeData `json:"data"`
+}
+
+type YoozAddOnListResponse struct {
+	Success bool                 `json:"success"`
+	Message string               `json:"message"`
+	Data    *YoozBundlesScreenData `json:"data"`
+}
+
+type YoozBundlesScreenData struct {
+	GroupID string           `json:"groupId"`
+	Title   string           `json:"title"`
+	Bundles []YoozPlanEntity `json:"bundles"`
+}
+
+type YoozPlanEntity struct {
+	ID              int             `json:"id"`
+	Title           string          `json:"title"`
+	Description     string          `json:"description"`
+	Price           string          `json:"price"`
+	Volume          string          `json:"volume"`
+	Icon            string          `json:"icon"`
+	BackgroundImage string          `json:"backgroundImage"`
+	Selected        bool            `json:"selected"`
+	ActionDetail    *PromotionButton `json:"actionDetail,omitempty"`
+}
+
+type YoozBundlesResponse struct {
+	Success bool             `json:"success"`
+	Message string           `json:"message"`
+	Data    []YoozPlanEntity `json:"data"`
+}
+
+type YoozClassicPlansData struct {
+	Plans []YoozPlanEntity `json:"plans"`
+}
+
+type YoozClassicPlansResponse struct {
+	Success bool                  `json:"success"`
+	Message string                `json:"message"`
+	Data    *YoozClassicPlansData `json:"data"`
+}
+
+type YoozOmegaPlansData struct {
+	Voucher string           `json:"voucher"`
+	MSISDN  string           `json:"msisdn"`
+	Plans   []YoozPlanEntity `json:"plans"`
+}
+
+type YoozOmegaPlansResponse struct {
+	Success bool                `json:"success"`
+	Message string              `json:"message"`
+	Data    *YoozOmegaPlansData `json:"data"`
+}
+
+type YoozDataCapData struct {
+	CurrentLimitMB int  `json:"currentLimitMb"`
+	MaxLimitMB     int  `json:"maxLimitMb"`
+	IsActive       bool `json:"isActive"`
+}
+
+type YoozDataCapResponse struct {
+	Success bool             `json:"success"`
+	Message string           `json:"message"`
+	Data    *YoozDataCapData `json:"data"`
+}
+
+type YoozRewardData struct {
+	RewardTitle string `json:"rewardTitle"`
+	Points      int    `json:"points"`
+	Status      string `json:"status"`
+}
+
+type YoozRewardResponse struct {
+	Success bool            `json:"success"`
+	Message string          `json:"message"`
+	Data    *YoozRewardData `json:"data"`
+}
+
+// --- Multi-Step Online Payment & Recharge ---
+
+type RechargeNumberItem struct {
+	MSISDN   string `json:"msisdn"`
+	Selected bool   `json:"selected"`
+	Label    string `json:"label"`
+}
+
+type RechargeNumberData struct {
+	Title        string               `json:"title"`
+	Items        []RechargeNumberItem `json:"items"`
+	ActionButton PromotionButton      `json:"actionButton"`
+}
+
+type RechargeNumberResponse struct {
+	Success bool                `json:"success"`
+	Message string              `json:"message"`
+	Data    *RechargeNumberData `json:"data"`
+}
+
+type RechargeTypeItem struct {
+	TypeID   string `json:"typeId"`
+	Title    string `json:"title"`
+	Subtitle string `json:"subtitle"`
+}
+
+type RechargeTypeData struct {
+	Title string             `json:"title"`
+	Types []RechargeTypeItem `json:"types"`
+}
+
+type RechargeTypeResponse struct {
+	Success bool              `json:"success"`
+	Message string            `json:"message"`
+	Data    *RechargeTypeData `json:"data"`
+}
+
+type OnlinePaymentProvider struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Logo     string `json:"logo"`
+	Method   string `json:"method"`
+	Currency string `json:"currency"`
+}
+
+type RechargeMethodData struct {
+	Title          string                  `json:"title"`
+	Description    string                  `json:"description"`
+	OnlinePayments []OnlinePaymentProvider `json:"onlinePayments"`
+	ActionButton   PromotionButton         `json:"actionButton"`
+}
+
+type RechargeMethodResponse struct {
+	Success bool                `json:"success"`
+	Message string              `json:"message"`
+	Data    *RechargeMethodData `json:"data"`
+}
+
+type OnlinePaymentPackage struct {
+	ID    string  `json:"id"`
+	Price float64 `json:"price"`
+	Label string  `json:"label"`
+}
+
+type OnlinePaymentData struct {
+	Title           string                 `json:"title"`
+	Description     string                 `json:"description"`
+	PaymentPackages []OnlinePaymentPackage `json:"paymentPackages"`
+	OtherCardsLabel string                 `json:"otherCardsLabel"`
+	ActionButton    PromotionButton        `json:"actionButton"`
+}
+
+type OnlinePaymentResponse struct {
+	Success bool               `json:"success"`
+	Message string             `json:"message"`
+	Data    *OnlinePaymentData `json:"data"`
+}
+
+type RechargeConfirmationData struct {
+	TransactionID string  `json:"transactionId"`
+	MSISDN        string  `json:"msisdn"`
+	Amount        float64 `json:"amount"`
+	Currency      string  `json:"currency"`
+	Status        string  `json:"status"`
+	ReceiptDate   string  `json:"receiptDate"`
+}
+
+type RechargeConfirmationResponse struct {
+	Success bool                      `json:"success"`
+	Message string                    `json:"message"`
+	Data    *RechargeConfirmationData `json:"data"`
+}
+
+type PaymentSelectionData struct {
+	RechargeType int                     `json:"rechargeType"`
+	ForOthers    bool                    `json:"forOthers"`
+	Methods      []OnlinePaymentProvider `json:"methods"`
+}
+
+type PaymentSelectionResponse struct {
+	Success bool                  `json:"success"`
+	Message string                `json:"message"`
+	Data    *PaymentSelectionData `json:"data"`
+}
+
+// --- Home Dashboard v3, CYO & Quick Actions ---
+
+type HomeDashboardData struct {
+	Title        string           `json:"title"`
+	Balance      string           `json:"balance"`
+	Expiry       string           `json:"expiry"`
+	InternetMB   float64          `json:"internetMb"`
+	Minutes      int              `json:"minutes"`
+	SMS          int              `json:"sms"`
+	QuickActions []QuickActionItem `json:"quickActions"`
+	Banners      []BannerItem     `json:"banners"`
+}
+
+type QuickActionItem struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Icon  string `json:"icon"`
+	URL   string `json:"url"`
+}
+
+type HomeDashboardResponse struct {
+	Success bool               `json:"success"`
+	Message string             `json:"message"`
+	Data    *HomeDashboardData `json:"data"`
+}
+
+type CYOBundlesData struct {
+	GroupID      string           `json:"groupId"`
+	Title        string           `json:"title"`
+	CustomSteps  []string         `json:"customSteps"`
+	MinInternet  int              `json:"minInternet"`
+	MaxInternet  int              `json:"maxInternet"`
+	MinMinutes   int              `json:"minMinutes"`
+	MaxMinutes   int              `json:"maxMinutes"`
+	ActionButton PromotionButton  `json:"actionButton"`
+}
+
+type CYOBundlesResponse struct {
+	Success bool            `json:"success"`
+	Message string          `json:"message"`
+	Data    *CYOBundlesData `json:"data"`
+}
+
+type ActiveOfferItem struct {
+	OfferID     string `json:"offerId"`
+	Title       string `json:"title"`
+	Price       string `json:"price"`
+	Validity    string `json:"validity"`
+	Description string `json:"description"`
+}
+
+type ActiveOffersData struct {
+	Offers []ActiveOfferItem `json:"offers"`
+}
+
+type ActiveOffersResponse struct {
+	Success bool              `json:"success"`
+	Message string            `json:"message"`
+	Data    *ActiveOffersData `json:"data"`
+}
+
+// --- Feedback, Surveys, Video Tutorials & Voice of Customer ---
+
+type SurveyQuestion struct {
+	ID       string   `json:"id"`
+	Question string   `json:"question"`
+	Type     string   `json:"type"`
+	Options  []string `json:"options,omitempty"`
+}
+
+type SurveyData struct {
+	SurveyID  string           `json:"surveyId"`
+	Title     string           `json:"title"`
+	Questions []SurveyQuestion `json:"questions"`
+}
+
+type SurveyResponse struct {
+	Success bool        `json:"success"`
+	Message string      `json:"message"`
+	Data    *SurveyData `json:"data"`
+}
+
+type VideoTutorialItem struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	VideoURL  string `json:"videoUrl"`
+	Thumbnail string `json:"thumbnail"`
+	Duration  string `json:"duration"`
+}
+
+type VideoTutorialsResponse struct {
+	Success bool                `json:"success"`
+	Message string              `json:"message"`
+	Data    []VideoTutorialItem `json:"data"`
+}
+
+type VoCEntity struct {
+	Username  string `json:"username"`
+	NMFloID   string `json:"nmfloId"`
+	CreatedAt int64  `json:"createdAt"`
+}
+
+type VoCResponse struct {
+	Success bool       `json:"success"`
+	Message string     `json:"message"`
+	Data    *VoCEntity `json:"data"`
+}
+
+// --- One-Yad & Epic Corporate ---
+
+type OneYadData struct {
+	Title        string          `json:"title"`
+	Description  string          `json:"description"`
+	ActionButton PromotionButton `json:"actionButton"`
+	TotalDonated string          `json:"totalDonated"`
+}
+
+type OneYadResponse struct {
+	Success bool        `json:"success"`
+	Message string      `json:"message"`
+	Data    *OneYadData `json:"data"`
+}
+
+type OneYadTeam struct {
+	TeamID string `json:"teamId"`
+	Name   string `json:"name"`
+	Logo   string `json:"logo"`
+	City   string `json:"city"`
+}
+
+type OneYadTeamsResponse struct {
+	Success bool         `json:"success"`
+	Message string       `json:"message"`
+	Data    []OneYadTeam `json:"data"`
+}
+
+type EpicLineItem struct {
+	MSISDN   string `json:"msisdn"`
+	Account  string `json:"account"`
+	Status   string `json:"status"`
+	PlanName string `json:"planName"`
+}
+
+type EpicLinesData struct {
+	Lines []EpicLineItem `json:"lines"`
+}
+
+type EpicLinesResponse struct {
+	Success bool           `json:"success"`
+	Message string         `json:"message"`
+	Data    *EpicLinesData `json:"data"`
+}
+
+type EpicLineUsageData struct {
+	MSISDN      string  `json:"msisdn"`
+	RemainingMB float64 `json:"remainingMb"`
+	TotalMB     float64 `json:"totalMb"`
+	Minutes     int     `json:"minutes"`
+	SMS         int     `json:"sms"`
+	Expiry      string  `json:"expiry"`
+}
+
+type EpicLineUsageResponse struct {
+	Success bool               `json:"success"`
+	Message string             `json:"message"`
+	Data    *EpicLineUsageData `json:"data"`
+}
+
+

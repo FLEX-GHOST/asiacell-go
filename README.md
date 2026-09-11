@@ -7,7 +7,7 @@
 **Production-grade, zero-dependency Go SDK for Asiacell Iraq APIs**
 
 [![Go Version](https://img.shields.io/badge/Go-1.26+-18181b?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
-[![Verified Endpoints](https://img.shields.io/badge/Endpoints-78%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
+[![Verified Endpoints](https://img.shields.io/badge/Endpoints-123%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
 [![Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(Stdlib)-18181b?style=flat-square)](https://pkg.go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-18181b?style=flat-square)](LICENSE)
 
@@ -29,20 +29,15 @@ asiacell-go/
 │       ├── client.go            # إعداد العميل، الترويسات، وإدارة الجلسات
 │       ├── auth.go              # المصادقة، OTP، والكابتشا
 │       ├── profile.go           # الملف الشخصي، الرصيد، والباقات الفعالة
-│       ├── services.go          # كافة خدمات آسياسيل الـ 78 الرسمية
+│       ├── services.go          # باقات وخدمات آسياسيل والتحويلات
+│       ├── fanzone.go           # ألعاب ومسابقات دوري نجوم العراق FanZone
+│       ├── partners.go          # دليل الشركاء وتصنيفات المتاجر والخصومات
+│       ├── yooz.go              # منظومة خطوط Yooz / Avocado الشبابية
+│       ├── recharge.go          # مسار الدفع والشحن الإلكتروني متعدد المراحل
+│       ├── addons_v3.go         # صمم باقتك (CYO)، الداشبورد v3، الاستبيانات، يد واحدة، وEpic
 │       └── types.go             # هياكل البيانات ونماذج الاستجابة JSON
 ├── examples/                    # أمثلة عملية مستقلة لكل خدمة
-│   ├── 01_auth_and_session/     # تسجيل الدخول وحفظ الجلسات
-│   ├── 02_account_and_profile/  # فحص الرصيد والباقات والملف الشخصي
-│   ├── 03_bundles_and_4g/       # تصفح باقات 4G والعروض
-│   ├── 04_credit_transfer/      # تحويل الرصيد
-│   ├── 05_recharge_voucher/     # شحن كروت التعبئة
-│   ├── 06_services_management/  # إدارة الاشتراكات وUSSD السحابي وحماية الرصيد
-│   ├── 07_shops_and_governorates/ # الفروع والمدن
-│   ├── 08_spin_wheel_and_rewards/ # عجلة الحظ
-│   ├── 09_cdr_incoming_transfer_verification/ # التحقق التلقائي من الحوالات
-│   └── 10_advanced_features/    # الأرقام المميزة، التعويضات، والشكاوى
-├── ENDPOINTS.md                 # التوثيق التقني لجميع نقاط النهاية الـ 78
+├── ENDPOINTS.md                 # التوثيق التقني لجميع نقاط النهاية الـ 123
 ├── README.md
 └── go.mod
 ```
@@ -51,7 +46,7 @@ asiacell-go/
 
 ## ميزات وقدرات المكتبة (Features)
 
-المكتبة تغطي 78 واجهة برمجية (Endpoints) رسمية تم فحصها والتحقق من سلامتها بنسبة 100%:
+المكتبة تغطي 123 واجهة برمجية (Endpoints) رسمية تم فحصها والتحقق من سلامتها بنسبة 100%:
 
 ### 1. المصادقة وإدارة الجلسات (Authentication & Sessions)
 - **طلب رمز التحقق (SMS OTP)**: `Login(ctx, phone)` لإرسال رمز الدخول مباشرة للهاتف.
@@ -132,6 +127,40 @@ asiacell-go/
 ### 10. برنامج مكافآت وفاء والتعرفة الدولية (Loyalty Rewards & International Tariffs)
 - **برنامج مكافآت وفاء (Loyalty Rewards)**: `GetLoyaltyRewards(ctx)` و `GetLoyaltyRewardDetail(ctx)` و `RedeemLoyaltyReward(ctx)` و `CheckLoyaltyRewardStatus(ctx, pid)`.
 - **التعرفة والخدمات الدولية**: `GetInternationalTariffs(ctx)` و `GetInternationalServices(ctx)`.
+
+### 11. ألعاب ومنافسات دوري نجوم العراق (FanZone & Gaming)
+- **المنافسات والبطولات**: `GetFanZoneHome(ctx, compId)` لجلب الفعاليات الحية.
+- **لعبة ركل واربح**: `GetFanZoneKickAndWin(ctx, compId)` و `FinishFanZoneKickAndWin(ctx, compId, score)` و `GetFanZoneKickAndWinReward(ctx, compId, ticketId)`.
+- **لوحة المتصدرين وتوقع المباريات**: `GetFanZoneLeaderBoard(ctx, compId)` و `GetFanZonePredictions(ctx, compId)`.
+- **الجوائز الكبرى وسجل المكافآت**: `GetFanZoneGrandPrizes(ctx, compId)` و `GetFanZoneRewardsHistory(ctx, compId)`.
+- **الاسم المستعار والفريق المفضل**: `GenerateFanZoneNickname(ctx, nickname)` و `PickFanZoneFavoriteTeam(ctx, compId, teamId)` و `PickFanZoneChampionTeam(ctx, compId, teamId)`.
+- **لعبة أجب واربح**: `GetFanZoneAnswerAndWin(ctx, compId)`.
+
+### 12. دليل الشركاء والمتاجر ونسب الخصم (Partners Directory)
+- **أقسام وتصنيفات المتاجر**: `GetPartnerCategories(ctx)`.
+- **مدن ومحافظات برنامج الخصومات**: `GetPartnerCities(ctx)`.
+- **تصنيفات المتاجر بالمحافظة**: `GetPartnerCityCategories(ctx, cityId)`.
+- **قائمة الشركاء والمحلات**: `GetPartnersByCategoryAndCity(ctx, categoryId, cityId)` مع العناوين ونسب الخصم والإحداثيات.
+- **تسجيل شريك جديد**: `RegisterPartner(ctx, req)`.
+
+### 13. منظومة خطوط يوز الشبابية (Yooz / Avocado)
+- **لوحة تحكم يوز**: `GetYoozHome(ctx)` للرصيد والمتبقي من الميغابايت والصلاحية.
+- **شاشة باقات وعروض يوز**: `GetYoozBundlesScreen(ctx, groupId)` و `GetYoozBundles(ctx)`.
+- **خطط كلاسيك وأوميغا**: `GetYoozClassicPlans(ctx)` و `GetYoozOmegaPlans(ctx, voucher, msisdn)`.
+- **سقف استهلاك بيانات يوز**: `GetYoozDataCap(ctx)` و `SetYoozDataCap(ctx, limitMB)`.
+- **مكافآت خطوط يوز**: `GetYoozReward(ctx)`.
+
+### 14. مسار الشحن الإلكتروني والداشبورد v3 والشركات (Recharge, CYO, Surveys & Epic)
+- **مسار الدفع الإلكتروني متعدد المراحل**:
+  - المرحلة 1 (الأرقام): `GetRechargeNumbers(ctx, option)`.
+  - المرحلة 2 (الأنواع): `GetRechargeTypes(ctx, option, msisdn)`.
+  - المرحلة 3 (البوابات والمحافظ): `GetRechargeMethods(ctx, option, msisdn, method)`.
+  - المرحلة 4 (الباقات والدفع): `GetOnlinePaymentDetails(ctx, option, msisdn, method, pgName)`.
+  - تأكيد العملية: `GetRechargeConfirmation(ctx, txId)` و `GetPaymentSelection(ctx)`.
+- **الداشبورد المحدث v3 والأزرار السريعة**: `GetHomeDashboardV3(ctx, lat, lng, roaming)` و `ManageQuickActions(ctx, actionIds)`.
+- **صمم باقتك بنفسك (CYO) والعروض**: `GetCYOBundles(ctx, groupId)` و `GetActiveOffers(ctx)`.
+- **الاستبيانات وصوت العميل**: `SubmitAppFeedback(ctx, cat, comment, rating)` و `GetSurveys(ctx)` و `SubmitSurvey(ctx, surveyId, answers)` و `GetVoiceOfCustomer(ctx)` و `GetVideoTutorials(ctx)`.
+- **مبادرة يد واحدة والخطوط المؤسسية**: `GetOneYadHome(ctx)` و `GetOneYadTeams(ctx)` و `SubmitOneYadRequest(ctx, teamId, amount)` و `GetEpicLines(ctx)` و `GetEpicLineUsage(ctx, msisdn)`.
 
 ## البدء السريع (Quick Start)
 

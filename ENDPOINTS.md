@@ -9,7 +9,7 @@
 <br />
 
 [![Specification](https://img.shields.io/badge/Specification-100%25%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
-[![Endpoints](https://img.shields.io/badge/Endpoints-78%20Verified-18181b?style=flat-square)](ENDPOINTS.md)
+[![Endpoints](https://img.shields.io/badge/Endpoints-123%20Verified-18181b?style=flat-square)](ENDPOINTS.md)
 [![Protocol](https://img.shields.io/badge/Protocol-HTTPS%2FREST-18181b?style=flat-square)](ENDPOINTS.md)
 [![Client](https://img.shields.io/badge/Go%20Client-asiacell--go-18181b?style=flat-square)](https://github.com/FLEX-GHOST/asiacell-go)
 
@@ -103,6 +103,51 @@
 | **76** | `GET` | `/api/v1/addon/datacap/limit` | `client.GetDataCapLimit(ctx)` | استعلام سقف البيانات اليومي المفروض حالياً على الخط |
 | **77** | `GET` | `/api/v1/addon/share/limit` | `client.GetBundleShareLimit(ctx)` | استعلام سقف الميغابايت المخصص لكل رقم مشارك في الباقة |
 | **78** | `GET` | `/api/v1/addon/share` | `client.GetManageLines(ctx)` | جلب قائمة الأرقام والخطوط المشاركة الفعالة في الباقة العائلية |
+| **79** | `GET` | `/api/v1/fanzone/home` | `client.GetFanZoneHome(ctx, compId)` | استعلام المنافسات والبطولات النشطة لدوري نجوم العراق |
+| **80** | `GET` | `/api/v1/fanzone/kick-and-win/home` | `client.GetFanZoneKickAndWin(ctx, compId)` | استعلام لعبة ركل واربح والمحاولات المتبقية |
+| **81** | `POST` | `/api/v1/fanzone/kick-and-win/play-finish` | `client.FinishFanZoneKickAndWin(ctx, compId, score)` | إنهاء لعبة ركل واربح وتسجيل النتيجة المحققة |
+| **82** | `GET` | `/api/v1/fanzone/kick-and-win/reward` | `client.GetFanZoneKickAndWinReward(ctx, compId, ticketId)` | استلام وصرف مكافأة وجائزة لعبة ركل واربح |
+| **83** | `GET` | `/api/v1/fanzone/leader-board` | `client.GetFanZoneLeaderBoard(ctx, compId)` | استعراض لوحة المتصدرين والنقاط وترتيب المستخدم |
+| **84** | `GET` | `/api/v1/fanzone/predict-and-win` | `client.GetFanZonePredictions(ctx, compId)` | جدول المباريات وتوقع النتائج للفوز بجوائز البطولة |
+| **85** | `GET` | `/api/v1/fanzone/grand-prizes` | `client.GetFanZoneGrandPrizes(ctx, compId)` | استعراض قائمة الجوائز الكبرى للموسم والمسابقات |
+| **86** | `GET` | `/api/v1/fanzone/rewards-history` | `client.GetFanZoneRewardsHistory(ctx, compId)` | سجل وتاريخ الجوائز والمكافآت السابقة التي حصل عليها المستخدم |
+| **87** | `POST` | `/api/v1/fanzone/onboarding/gen-nickname` | `client.GenerateFanZoneNickname(ctx, nickname)` | توليد واقتراح اسم مستعار للمشارك في مسابقات FanZone |
+| **88** | `GET` | `/api/v1/fanzone/answer-and-win` | `client.GetFanZoneAnswerAndWin(ctx, compId)` | استعلام لعبة أجب واربح الرياضية التفاعلية |
+| **89** | `GET` | `/api/v1/fanzone/favourite-team/pick` | `client.PickFanZoneFavoriteTeam(ctx, compId, teamId)` | اختيار وتثبيت الفريق المفضل للمشترك في الدوري |
+| **90** | `GET` | `/api/v1/fanzone/champion-team/pick` | `client.PickFanZoneChampionTeam(ctx, compId, teamId)` | اختيار وتوقع الفريق البطل المتوج بالدوري |
+| **91** | `GET` | `/api/v1/partners/categories` | `client.GetPartnerCategories(ctx)` | أقسام وتصنيفات الشركاء والمتاجر في برنامج الخصومات (مطاعم، فنادق، مقاهي) |
+| **92** | `GET` | `/api/v2/partners/cities` | `client.GetPartnerCities(ctx)` | قائمة المحافظات والمدن المشمولة ببرنامج الخصومات |
+| **93** | `GET` | `/api/v2/partners/cities/{cityId}/categories` | `client.GetPartnerCityCategories(ctx, cityId)` | تصنيفات الشركاء والمتاجر المتاحة في محافظة محددة |
+| **94** | `GET` | `/api/v2/categories/{catId}/cities/{cityId}/partners` | `client.GetPartnersByCategoryAndCity(ctx, catId, cityId)` | قائمة المتاجر والشركاء مع العنوان والإحداثيات ونسبة الخصم |
+| **95** | `POST` | `/api/v2/partners/register` | `client.RegisterPartner(ctx, req)` | تقديم طلب تسجيل متجر أو نشاط تجاري جديد في برنامج شركاء آسياسيل |
+| **96** | `GET` | `/api/v5/avocado/home` | `client.GetYoozHome(ctx)` | لوحة تحكم خطوط Yooz الشبابية الرسمية (الرصيد، الصلاحية، الميغابايت) |
+| **97** | `GET` | `/api/v3/avocado/bundles/screen` | `client.GetYoozBundlesScreen(ctx, groupId)` | شاشة عرض باقات وعروض خطوط يوز |
+| **98** | `GET` | `/api/v3/avocado/bundles/classic-plans` | `client.GetYoozClassicPlans(ctx)` | باقات وخطط يوز كلاسيك الشهرية |
+| **99** | `GET` | `/api/v3/avocado/bundles/omega-plans` | `client.GetYoozOmegaPlans(ctx, voucher, msisdn)` | خطط وباقات يوز أوميغا المخصصة |
+| **100** | `GET` | `/api/v2/avocado/bundles` | `client.GetYoozBundles(ctx)` | استعراض جميع حزم وباقات يوز المتاحة للشراء |
+| **101** | `GET` | `/api/v2/avocado/data-cap` | `client.GetYoozDataCap(ctx)` | استعلام سقف استهلاك البيانات المفروض على شريحة يوز |
+| **102** | `POST` | `/api/v1/avocado/data-cap` | `client.SetYoozDataCap(ctx, limitMB)` | تعديل وتعيين سقف استهلاك البيانات لشريحة يوز |
+| **103** | `GET` | `/api/v1/avocado/reward` | `client.GetYoozReward(ctx)` | استعلام مكافآت وهدايا ونقاط خطوط يوز |
+| **104** | `GET` | `/api/v1/recharge/screen1` | `client.GetRechargeNumbers(ctx, option)` | المرحلة 1 من الشحن الإلكتروني: اختيار الرقم المراد تعبئته |
+| **105** | `GET` | `/api/v1/recharge/screen2` | `client.GetRechargeTypes(ctx, option, msisdn)` | المرحلة 2: اختيار نوع الشحن والتعبئة |
+| **106** | `GET` | `/api/v1/recharge/screen3` | `client.GetRechargeMethods(ctx, option, msisdn, method)` | المرحلة 3: بوابات ومحافظ الدفع الإلكتروني المتاحة (زين كاش، فاست باي، FIB) |
+| **107** | `GET` | `/api/v1/recharge/screen4` | `client.GetOnlinePaymentDetails(ctx, option, msisdn, method, pgName)` | المرحلة 4: مبالغ الشحن المتاحة وتجهيز مسار بوابة الدفع |
+| **108** | `GET` | `/api/v1/recharge/confirmation` | `client.GetRechargeConfirmation(ctx, txId)` | استعلام تأكيد وإيصال نجاح عملية الدفع والشحن الإلكتروني |
+| **109** | `GET` | `/api/v1/top-up/payment-selection` | `client.GetPaymentSelection(ctx)` | خيارات وطرق الدفع لشحن الرصيد لأرقام أخرى |
+| **110** | `GET` | `/api/v3/home` | `client.GetHomeDashboardV3(ctx, lat, lng, roaming)` | الصفحة الرئيسية والداشبورد المحدث v3 مع الأزرار السريعة والإحداثيات |
+| **111** | `GET` | `/api/v3/addon/cyo` | `client.GetCYOBundles(ctx, groupId)` | خدمة صمم باقتك بنفسك (Create Your Own) باختيار سعة الإنترنت والدقائق |
+| **112** | `GET` | `/api/v1/offer/active-offers` | `client.GetActiveOffers(ctx)` | استعلام قائمة العروض المباشرة الفعالة على الخط |
+| **113** | `POST` | `/api/v3/profile/manage-quick-actions` | `client.ManageQuickActions(ctx, ids)` | حفظ وترتيب أزرار الوصول السريع في واجهة التطبيق |
+| **114** | `POST` | `/api/v1/app-feedback` | `client.SubmitAppFeedback(ctx, cat, comment, rating)` | إرسال تقييم وملاحظات واقتراحات المشترك حول خدمات آسياسيل |
+| **115** | `GET` | `/api/v1/survey` | `client.GetSurveys(ctx)` | استعلام استبيانات رضا المستخدمين وأسئلتها |
+| **116** | `POST` | `/api/v1/survey` | `client.SubmitSurvey(ctx, surveyId, answers)` | إرسال إجابات استبيان رضا المشتركين |
+| **117** | `GET` | `/api/v1/voc` | `client.GetVoiceOfCustomer(ctx)` | بوابة صوت العميل (Voice of Customer) واستعلام هوية المشترك |
+| **118** | `GET` | `/api/v1/promotions/video-tutorials` | `client.GetVideoTutorials(ctx)` | جلب الفيديوهات والشروحات التعليمية الرسمية لكيفية استخدام الخدمات |
+| **119** | `GET` | `/api/v1/one-yad` | `client.GetOneYadHome(ctx)` | لوحة تحكم مبادرة "يد واحدة" الاجتماعية والتبرعات |
+| **120** | `GET` | `/api/v1/one-yad/teams` | `client.GetOneYadTeams(ctx)` | قائمة الفرق والمجموعات التطوعية التابعة للمبادرة |
+| **121** | `POST` | `/api/v1/one-yad/request` | `client.SubmitOneYadRequest(ctx, teamId, amount)` | تقديم طلب تبرع أو مساهمة في مبادرة يد واحدة |
+| **122** | `GET` | `/api/v1/epic` | `client.GetEpicLines(ctx)` | لوحة تحكم خطوط الشركات والخطوط المؤسسية (Epic Corporate) |
+| **123** | `GET` | `/api/v1/epic/remaining/{msisdn}` | `client.GetEpicLineUsage(ctx, msisdn)` | استعلام الرصيد والمتبقي من البيانات والمكالمات للخط المؤسسي |
 
 ---
 
