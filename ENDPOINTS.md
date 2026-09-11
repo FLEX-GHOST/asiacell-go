@@ -68,132 +68,199 @@
 
 ### 2.1 كشف الحساب والتحقق التلقائي من تحويلات الرصيد (CDR & Transfer Verification)
 
-#### `GET /api/v1/cdr/detail?type=btransfer&page={page}&limit={limit}&lang=ar`
+#### المسار:
+<div dir="ltr" align="left">
+
+```http
+GET /api/v1/cdr/detail?type=btransfer&page={page}&limit={limit}&lang=ar
+```
+
+</div>
+
 - **الغرض**: الاستعلام من خوادم آسياسيل عن السجل الحقيقي لتحويلات الرصيد (Call Detail Records) الواردة والصادرة على الشريحة.
-- **الهيدرز**:
-  - `Authorization: Bearer <access_token>`
-  - `DeviceId: <UUID-v4>`
-  - `X-ODP-API-KEY: 1ccbc4c913bc4ce785a0a2de444aa0d6`
-- **استجابة الخادم النموذجية `200 OK`**:
-  ```json
-  {
-    "code": 200,
-    "message": "success",
-    "success": true,
-    "data": {
-      "total": 1,
-      "data": [
-        {
-          "amount": "1000 IQD",
-          "unit": "TRANSFERS",
-          "title": "تحويل الرصيد",
-          "subTitle": "7744298878",
-          "description": "١١/٠٩/٢٠٢٦ ٠٦:٢٣:٤٣"
-        }
-      ]
-    }
+
+**الهيدرز المطلوبة (Headers):**
+<div dir="ltr" align="left">
+
+```http
+Authorization: Bearer <access_token>
+DeviceId: <UUID-v4>
+X-ODP-API-KEY: 1ccbc4c913bc4ce785a0a2de444aa0d6
+```
+
+</div>
+
+**استجابة الخادم النموذجية (Server Response):**
+<div dir="ltr" align="left">
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "success": true,
+  "data": {
+    "total": 1,
+    "data": [
+      {
+        "amount": "1000 IQD",
+        "unit": "TRANSFERS",
+        "title": "تحويل الرصيد",
+        "subTitle": "7744298878",
+        "description": "١١/٠٩/٢٠٢٦ ٠٦:٢٣:٤٣"
+      }
+    ]
   }
-  ```
+}
+```
 
-#### `POST /api/v1/cdr/send-otp` و `POST /api/v1/cdr/confirm`
-- **الغرض**: إرسال وتأكيد رمز OTP لتفعيل صلاحية الوصول لكشف الحساب للجلسة.
+</div>
 
-#### خوارزمية التحقق التلقائي (`VerifyIncomingTransfer`)
-- **الآلية**: تقوم الدالة بالاستعلام المباشر من سجل الـ CDR عن آخر 30 عملية، وتطابق رقم الهاتف المرسل (بمقارنة آخر 9 أرقام لتجاوز اختلافات الصيغ الدولية والمحلية `077` أو `96477`)، وتتحقق من أن الحوالة واردة (ليست سالبة) ومن القيمة المالية وتاريخ العملية، لمنع الاحتيال وضمان الإيداع والتفعيل الفوري بدون أي تدخل بشري.
+#### تفعيل كشف الحساب (CDR Activation):
+- `POST /api/v1/cdr/send-otp`: إرسال كود OTP برسالة SMS لتفعيل صلاحية الوصول للجلسة.
+- `POST /api/v1/cdr/confirm`: تأكيد كود الـ OTP.
+
+#### خوارزمية التحقق التلقائي (`VerifyIncomingTransfer`):
+- تقوم الدالة بالاستعلام المباشر من سجل الـ CDR عن آخر 30 عملية، وتطابق رقم هاتف المرسل (بمقارنة آخر 9 أرقام لتجاوز اختلافات البادئات `077` أو `96477`)، وتتأكد أن الحوالة واردة (إيجابية وليست سالبة) وأن القيمة مساوية أو أكبر من المطلوب، لمنع الاحتيال وضمان الإيداع التلقائي فورياً بدون تدخل يدوي للأدمن.
 
 ---
 
 ### 2.2 سوق الأرقام المميزة (Vanity VIP Numbers)
 
-#### `GET /api/v2/vanity/classes`
-- **الغرض**: استعراض فئات الأرقام المميزة (الماسية، الذهبية، الفضية، البرونزية).
+- `GET /api/v2/vanity/classes`: استعراض فئات الأرقام المميزة (الماسية، الذهبية، الفضية، البرونزية).
+- `GET /api/v2/vanity?msisdn={pattern}&classId={id}&page={p}&limit={l}`: البحث عن أرقام مميزة بنمط محدد وأسعارها.
 
-#### `GET /api/v2/vanity?msisdn={pattern}&classId={id}&page={p}&limit={l}`
-- **الغرض**: البحث عن أرقام مميزة بنمط محدد وأسعارها.
+#### حجز الرقم المميز:
+<div dir="ltr" align="left">
 
-#### `POST /api/v2/vanity`
-- **الغرض**: حجز الرقم المميز مباشرة.
-- **البايلود**:
-  ```json
-  {
-    "msisdn": "07700001111",
-    "classId": "1"
-  }
-  ```
+```http
+POST /api/v2/vanity
+```
+
+```json
+{
+  "msisdn": "07700001111",
+  "classId": "1"
+}
+```
+
+</div>
 
 ---
 
 ### 2.3 إهداء الباقات للغير (Send Addon as a Gift)
 
-#### `POST /api/v1/addon/send-as-gift`
 - **الغرض**: شراء باقة إنترنت أو مكالمات وإرسالها كهدية لأي رقم آسياسيل آخر، مع الخصم المباشر من رصيد الشريحة المرسلة.
-- **البايلود**:
-  ```json
-  {
-    "addOnId": 142,
-    "receiverMsisdn": "07701234567"
-  }
-  ```
+
+<div dir="ltr" align="left">
+
+```http
+POST /api/v1/addon/send-as-gift
+```
+
+```json
+{
+  "addOnId": 142,
+  "receiverMsisdn": "07701234567"
+}
+```
+
+</div>
 
 ---
 
 ### 2.4 نظام الشكاوى والتذاكر الفنية (Resolution Center)
 
-#### `GET /api/v1/resolution-center/categories`
-- **الغرض**: جلب تصنيفات المشاكل والشكاوى المعتمدة.
+- `GET /api/v1/resolution-center/categories`: جلب تصنيفات المشاكل والشكاوى المعتمدة.
+- `GET /api/v1/resolution-center`: استعراض التذاكر السابقة المفتوحة ومسار معالجتها.
 
-#### `POST /api/v1/resolution-center`
-- **الغرض**: فتح تذكرة دعم فني رسمية لدى إدارة العمليات (NOC).
-- **البايلود**:
-  ```json
-  {
-    "category": "cat_network",
-    "description": "انقطاع مفاجئ في إشارة الـ 4G في منطقة المنصور"
-  }
-  ```
+#### فتح تذكرة دعم فني جديدة:
+<div dir="ltr" align="left">
+
+```http
+POST /api/v1/resolution-center
+```
+
+```json
+{
+  "category": "cat_network",
+  "description": "انقطاع مفاجئ في إشارة الـ 4G في منطقة المنصور"
+}
+```
+
+</div>
 
 ---
 
 ### 2.5 نظام التعويضات التلقائي (Compensation System)
 
-#### `GET /api/v1/compensation`
-- **الغرض**: فحص استحقاق الخط للتعويضات الرسمية المعتمدة من آسياسيل عند وجود أعطال شبكة عامة، واستلام باقات مجانية.
+<div dir="ltr" align="left">
+
+```http
+GET /api/v1/compensation
+```
+
+</div>
+
+- **الغرض**: فحص استحقاق الخط للتعويضات الرسمية المعتمدة من آسياسيل عند وجود أعطال شبكة عامة، واستلام باقات إنترنت أو رصيد مجاني.
 
 ---
 
 ### 2.6 خطوط الشباب Yooz (MGM Referral Program)
 
-#### `GET /api/v1/yooz-mgm`
-- **الغرض**: استخراج كود الإحالة ورابط المشاركة وعدد الإحالات الناجحة.
+- `GET /api/v1/yooz-mgm`: استخراج كود الإحالة ورابط المشاركة وعدد الإحالات الناجحة.
 
-#### `POST /api/v1/yooz-mgm/apply-code`
-- **الغرض**: تفعيل كود دعوة للحصول على الرصيد والإنترنت المجاني.
-- **البايلود**:
-  ```json
-  {
-    "promoCode": "YOOZ2026"
-  }
-  ```
+#### تفعيل كود دعوة:
+<div dir="ltr" align="left">
+
+```http
+POST /api/v1/yooz-mgm/apply-code
+```
+
+```json
+{
+  "promoCode": "YOOZ2026"
+}
+```
+
+</div>
 
 ---
 
 ### 2.7 كروت الألعاب والشحن الرقمي (E-Vouchers)
 
-#### `GET /api/v2/e-voucher/packages?recharge-type=1`
-- **الغرض**: استعراض كروت الألعاب والتطبيقات المتاحة (PUBG, PlayStation, iTunes, etc.).
+<div dir="ltr" align="left">
+
+```http
+GET /api/v2/e-voucher/packages?recharge-type=1
+```
+
+</div>
+
+- **الغرض**: استعراض كروت الألعاب والتطبيقات المتاحة للشراء برصيد الهاتف (PUBG, PlayStation, iTunes, etc.).
 
 ---
 
 ### 2.8 تسجيل الدخول وإدارة الجلسات (Authentication)
 
-#### `POST /api/v1/auth/phone` & `POST /api/v1/auth/login-passcode`
-- **الغرض**: تسجيل الدخول برقم الهاتف عبر رمز التحقق SMS واستخراج توكنات الوصول والتجديد.
+<div dir="ltr" align="left">
+
+```http
+POST /api/v1/auth/phone
+POST /api/v1/auth/login-passcode
+POST /api/v1/auth/refresh-token
+```
+
+</div>
+
+- **الغرض**: تسجيل الدخول برقم الهاتف عبر رمز التحقق SMS واستخراج وتجديد التوكنات تلقائياً.
 
 ---
 
 ## 3. الهيدرز الرسمية المطلوبة (Standard HTTP Headers)
 
 جميع الطلبات المرسلة تتضمن الهيدرز الرسمية المعتمدة من بوابة آسياسيل:
+
+<div dir="ltr" align="left">
 
 ```http
 Accept: application/json, text/plain, */*
@@ -209,3 +276,5 @@ X-ODP-CHANNEL: mobile
 X-SCREEN-TYPE: MOBILE
 Authorization: Bearer <JWT_ACCESS_TOKEN>
 ```
+
+</div>
