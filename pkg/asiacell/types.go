@@ -1052,3 +1052,178 @@ type SubmitLineLimitResponse struct {
 	Message string `json:"message"`
 }
 
+// --- Shake & Win (/api/v1/shake-and-win) ---
+
+type ShakeAndWinData struct {
+	Title             string         `json:"title"`
+	SubTitle          string         `json:"subTitle"`
+	Image             string         `json:"image"`
+	Message           string         `json:"message"`
+	Description       string         `json:"description"`
+	ShakeAndWinAction string         `json:"shakeAndWinAction"`
+	ActionButtons     []ActionButton `json:"actionButtons"`
+}
+
+type ShakeAndWinResponse struct {
+	Success bool             `json:"success"`
+	Message string           `json:"message"`
+	Data    *ShakeAndWinData `json:"data"`
+}
+
+// --- Bill & Postpaid (/api/v1/top-up/bill-amount & pay-bill) ---
+
+type BillInfoResponse struct {
+	Success bool    `json:"success"`
+	Message string  `json:"message"`
+	DueDate string  `json:"dueDate"`
+	Data    float64 `json:"data"`
+}
+
+// --- Search Engine (/api/v1/search & suggestions) ---
+
+type SearchSuggestionsResponse struct {
+	Success bool     `json:"success"`
+	Message string   `json:"message"`
+	Data    []string `json:"data"`
+}
+
+type SearchItem struct {
+	ID          int    `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	ActionURL   string `json:"actionUrl"`
+}
+
+type SearchResultResponse struct {
+	Success bool         `json:"success"`
+	Message string       `json:"message"`
+	Data    []SearchItem `json:"data"`
+}
+
+// --- International Services & Tariffs (/api/v1/international-services) ---
+
+type InternationalCountryTariff struct {
+	CountryCode string  `json:"countryCode"`
+	CountryName string  `json:"countryName"`
+	Flag        string  `json:"flag"`
+	RatePerMin  float64 `json:"ratePerMin"`
+	Currency    string  `json:"currency"`
+}
+
+type InternationalTariffResponse struct {
+	Success bool                         `json:"success"`
+	Message string                      `json:"message"`
+	Data    []InternationalCountryTariff `json:"data"`
+}
+
+// --- Loyalty & Rewards (/api/v1/reward & /api/v1/eo) ---
+
+type LoyaltyRewardItem struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Points      int    `json:"points"`
+	ImageURL    string `json:"imageUrl"`
+}
+
+type LoyaltyRewardsResponse struct {
+	Success bool                `json:"success"`
+	Message string              `json:"message"`
+	Data    []LoyaltyRewardItem `json:"data"`
+}
+
+type RedeemRewardResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	PID     string `json:"pid"`
+}
+
+// --- Data Line & Router Management (/api/v1/data-line & multi-line) ---
+
+type DataLineInfo struct {
+	MSISDN       string `json:"msisdn"`
+	ICCID        string `json:"iccid"`
+	Status       string `json:"status"`
+	PackageName  string `json:"packageName"`
+	RemainingVol string `json:"remainingVolume"`
+}
+
+type DataLineResponse struct {
+	Success bool          `json:"success"`
+	Message string        `json:"message"`
+	Data    *DataLineInfo `json:"data"`
+}
+
+type MultiLineConnection struct {
+	MSISDN   string `json:"msisdn"`
+	Type     string `json:"type"`
+	NickName string `json:"nickname"`
+	Status   string `json:"status"`
+}
+
+type MultiLineResponse struct {
+	Success bool                  `json:"success"`
+	Message string                `json:"message"`
+	Data    []MultiLineConnection `json:"data"`
+}
+
+// --- Limits Inspection & Manage Lines (/api/v1/addon/datacap/limit & /api/v1/addon/share) ---
+
+type LineLimitInfo struct {
+	MSISDN      string  `json:"msisdn"`
+	LimitMB     float64 `json:"limitMB"`
+	ConsumedMB  float64 `json:"consumedMB"`
+	RemainingMB float64 `json:"remainingMB"`
+}
+
+type LineLimitsResponse struct {
+	Success bool            `json:"success"`
+	Message string          `json:"message"`
+	Data    []LineLimitInfo `json:"data"`
+}
+
+type SharedLineItem struct {
+	MSISDN   string `json:"msisdn"`
+	NickName string `json:"nickname"`
+	Role     string `json:"role"`
+	Status   string `json:"status"`
+}
+
+type ManageLineResponse struct {
+	Success bool             `json:"success"`
+	Message string           `json:"message"`
+	Data    []SharedLineItem `json:"data"`
+}
+
+// --- Ticket Detail & Form (/api/v1/resolution-center/{ticketNumber}) ---
+
+type TicketDetailItem struct {
+	TicketNumber string `json:"ticketNumber"`
+	Category     string `json:"category"`
+	Status       string `json:"status"`
+	CreatedAt    string `json:"createdAt"`
+	Description  string `json:"description"`
+	Resolution   string `json:"resolution"`
+}
+
+type TicketDetailResponse struct {
+	Success bool              `json:"success"`
+	Message string            `json:"message"`
+	Data    *TicketDetailItem `json:"data"`
+}
+
+type TicketFormField struct {
+	Key         string   `json:"key"`
+	Label       string   `json:"label"`
+	Type        string   `json:"type"`
+	Required    bool     `json:"required"`
+	Options     []string `json:"options,omitempty"`
+	Placeholder string   `json:"placeholder,omitempty"`
+}
+
+type TicketFormResponse struct {
+	Success bool              `json:"success"`
+	Message string            `json:"message"`
+	Data    []TicketFormField `json:"data"`
+}
+

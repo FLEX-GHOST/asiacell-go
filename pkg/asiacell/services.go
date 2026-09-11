@@ -1965,3 +1965,498 @@ func (c *Client) SetBundleShareLimit(ctx context.Context, msisdn string, limitMB
 	return nil
 }
 
+// ========================================================================
+// 24. Shake & Win (/api/v1/shake-and-win)
+// ========================================================================
+
+func (c *Client) GetShakeAndWinStatus(ctx context.Context) (*ShakeAndWinData, error) {
+	path := fmt.Sprintf("/api/v1/shake-and-win?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting shake and win status: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res ShakeAndWinResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding shake and win response: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *Client) PlayShakeAndWin(ctx context.Context, transactionID string) (*ShakeAndWinData, error) {
+	payload, err := json.Marshal(map[string]string{"transactionId": transactionID})
+	if err != nil {
+		return nil, fmt.Errorf("marshaling play shake and win: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/shake-and-win?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("submitting shake and win: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res ShakeAndWinResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding shake and win response: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *Client) GetTopupShakeAndWin(ctx context.Context) (*ShakeAndWinData, error) {
+	path := fmt.Sprintf("/api/v1/top-up/shake-and-win?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting topup shake and win: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res ShakeAndWinResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding topup shake and win: %w", err)
+	}
+	return res.Data, nil
+}
+
+// ========================================================================
+// 25. Postpaid Bill Payment (/api/v1/top-up/bill-amount & pay-bill)
+// ========================================================================
+
+func (c *Client) GetBillAmount(ctx context.Context) (*BillInfoResponse, error) {
+	path := fmt.Sprintf("/api/v1/top-up/bill-amount?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting bill amount: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res BillInfoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding bill amount: %w", err)
+	}
+	return &res, nil
+}
+
+func (c *Client) PayBill(ctx context.Context, phone string, amount float64) error {
+	payload, err := json.Marshal(map[string]any{
+		"msisdn":       phone,
+		"rechargeType": 1,
+		"amount":       amount,
+	})
+	if err != nil {
+		return fmt.Errorf("marshaling pay bill request: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/top-up/pay-bill?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("submitting pay bill: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+// ========================================================================
+// 26. Ticket Tracking & Form Details (/api/v1/resolution-center)
+// ========================================================================
+
+func (c *Client) GetTicketDetail(ctx context.Context, ticketNumber string) (*TicketDetailItem, error) {
+	path := fmt.Sprintf("/api/v1/resolution-center/%s?lang=%s", ticketNumber, c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting ticket detail: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res TicketDetailResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding ticket detail: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *Client) GetTicketForm(ctx context.Context, category string) ([]TicketFormField, error) {
+	path := fmt.Sprintf("/api/v1/resolution-center/ticket-form?category=%s&lang=%s", url.QueryEscape(category), c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting ticket form: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res TicketFormResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding ticket form: %w", err)
+	}
+	return res.Data, nil
+}
+
+// ========================================================================
+// 27. Data Lines & Routers (/api/v1/data-line & /api/v1/multi-line)
+// ========================================================================
+
+func (c *Client) GetDataLineInfo(ctx context.Context) (*DataLineInfo, error) {
+	path := fmt.Sprintf("/api/v1/data-line?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting data line info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res DataLineResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding data line info: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *Client) PairDataLine(ctx context.Context, msisdn, iccid string) error {
+	payload, err := json.Marshal(map[string]any{
+		"msisdn":      msisdn,
+		"iccid":       iccid,
+		"replacement": false,
+	})
+	if err != nil {
+		return fmt.Errorf("marshaling pair data line request: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/data-line?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("submitting pair data line: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+func (c *Client) GetMultiLineConnections(ctx context.Context) ([]MultiLineConnection, error) {
+	path := fmt.Sprintf("/api/v1/multi-line?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting multi-line connections: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res MultiLineResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding multi-line response: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *Client) GetMultiLineHome(ctx context.Context) (*HomeData, error) {
+	path := fmt.Sprintf("/api/v1/multi-line/home?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting multi-line home: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res HomeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding multi-line home: %w", err)
+	}
+	return &res.Data, nil
+}
+
+// ========================================================================
+// 28. Global Search Engine (/api/v1/search & suggestions)
+// ========================================================================
+
+func (c *Client) Search(ctx context.Context, query string) ([]SearchItem, error) {
+	path := fmt.Sprintf("/api/v1/search?q=%s&lang=%s", url.QueryEscape(query), c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("executing search: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res SearchResultResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding search response: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *Client) GetSearchSuggestions(ctx context.Context, query string) ([]string, error) {
+	path := fmt.Sprintf("/api/v1/search/suggestions?q=%s&lang=%s", url.QueryEscape(query), c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting search suggestions: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res SearchSuggestionsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding search suggestions: %w", err)
+	}
+	return res.Data, nil
+}
+
+// ========================================================================
+// 29. International Services & Tariffs (/api/v1/international-services)
+// ========================================================================
+
+func (c *Client) GetInternationalTariffs(ctx context.Context) ([]InternationalCountryTariff, error) {
+	path := fmt.Sprintf("/api/v1/international-services/tariff?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting international tariffs: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res InternationalTariffResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding international tariffs: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *Client) GetInternationalServices(ctx context.Context) ([]PromotionItem, error) {
+	path := fmt.Sprintf("/api/v1/international-services?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting international services: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res PromotionsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding international services: %w", err)
+	}
+
+	var items []PromotionItem
+	for _, body := range res.Data.Bodies {
+		items = append(items, body.Items...)
+	}
+	return items, nil
+}
+
+// ========================================================================
+// 30. Loyalty Rewards & Wafaa (/api/v1/reward & /api/v1/eo)
+// ========================================================================
+
+func (c *Client) GetLoyaltyRewards(ctx context.Context) ([]LoyaltyRewardItem, error) {
+	path := fmt.Sprintf("/api/v1/reward?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting loyalty rewards: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res LoyaltyRewardsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding loyalty rewards: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *Client) GetLoyaltyRewardDetail(ctx context.Context) (*LoyaltyRewardItem, error) {
+	path := fmt.Sprintf("/api/v1/reward/detail?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting reward detail: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res struct {
+		Success bool               `json:"success"`
+		Data    *LoyaltyRewardItem `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding reward detail: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *Client) RedeemLoyaltyReward(ctx context.Context) (*RedeemRewardResponse, error) {
+	path := fmt.Sprintf("/api/v1/eo?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("redeeming loyalty reward: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res RedeemRewardResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding redeem reward response: %w", err)
+	}
+	return &res, nil
+}
+
+func (c *Client) CheckLoyaltyRewardStatus(ctx context.Context, pid string) (bool, error) {
+	path := fmt.Sprintf("/api/v1/eo/check-status?pid=%s&lang=%s", url.QueryEscape(pid), c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return false, fmt.Errorf("checking reward status: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return false, ErrUnauthorized
+	}
+
+	var res struct {
+		Success bool `json:"success"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return false, fmt.Errorf("decoding check reward status: %w", err)
+	}
+	return res.Success, nil
+}
+
+// ========================================================================
+// 31. Profile Update & Limits Inspection
+// ========================================================================
+
+func (c *Client) UpdateProfileInfo(ctx context.Context, name, email string) error {
+	payload, err := json.Marshal(map[string]string{
+		"name":  name,
+		"email": email,
+	})
+	if err != nil {
+		return fmt.Errorf("marshaling update profile request: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v3/profile/update?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("submitting update profile: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+func (c *Client) GetDataCapLimit(ctx context.Context) ([]LineLimitInfo, error) {
+	path := fmt.Sprintf("/api/v1/addon/datacap/limit?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting datacap limit: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res LineLimitsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding datacap limit response: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *Client) GetBundleShareLimit(ctx context.Context) ([]LineLimitInfo, error) {
+	path := fmt.Sprintf("/api/v1/addon/share/limit?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting bundle share limit: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res LineLimitsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding share limit response: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *Client) GetManageLines(ctx context.Context) ([]SharedLineItem, error) {
+	path := fmt.Sprintf("/api/v1/addon/share?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting shared lines: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res ManageLineResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding manage lines: %w", err)
+	}
+	return res.Data, nil
+}
+

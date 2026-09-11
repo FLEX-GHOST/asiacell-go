@@ -4,10 +4,12 @@
 
 # مرجع نقاط نهاية واجهة برمجة تطبيقات آسياسيل (Asiacell API Endpoints)
 
-**المواصفات الكاملة لجميع نقاط نهاية HTTP REST API لشركة آسياسيل العراق، مستخرجة ومفحوصة بالكامل مع خوادم الإنتاج.**
+**المواصفات الكاملة لجميع نقاط نهاية HTTP الرسمية لتطبيق آسياسيل (Asiacell API) باللغة العربية مع نماذج الطلب والاستجابة.**
+
+<br />
 
 [![Specification](https://img.shields.io/badge/Specification-100%25%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
-[![Endpoints](https://img.shields.io/badge/Endpoints-55%20Verified-18181b?style=flat-square)](ENDPOINTS.md)
+[![Endpoints](https://img.shields.io/badge/Endpoints-78%20Verified-18181b?style=flat-square)](ENDPOINTS.md)
 [![Protocol](https://img.shields.io/badge/Protocol-HTTPS%2FREST-18181b?style=flat-square)](ENDPOINTS.md)
 [![Client](https://img.shields.io/badge/Go%20Client-asiacell--go-18181b?style=flat-square)](https://github.com/FLEX-GHOST/asiacell-go)
 
@@ -78,6 +80,29 @@
 | **53** | `POST` | `/api/v1/account-action/remove` | `client.RemoveLinkedAccount(ctx, phone)` | فك وحذف ارتباط رقم إضافي من الحساب |
 | **54** | `POST` | `/api/v1/addon/datacap/set-limit` | `client.SetDataCapLimit(ctx, limitMB)` | تعيين سقف استهلاك البيانات اليومي للخط بالكامل لمنع استنزاف الرصيد |
 | **55** | `POST` | `/api/v1/addon/share/set-limit` | `client.SetBundleShareLimit(ctx, phone, limitMB)` | تحديد سقف ميغابايت لكل رقم مشارك في باقة الإنترنت المشتركة |
+| **56** | `GET` | `/api/v1/shake-and-win` | `client.GetShakeAndWinStatus(ctx)` | استعلام حالة لعبة هز واربح اليومية والجوائز المتاحة |
+| **57** | `POST` | `/api/v1/shake-and-win` | `client.PlayShakeAndWin(ctx, txID)` | تنفيذ الهزة واستلام الجائزة الفورية (رصيد أو ميغابايت) |
+| **58** | `GET` | `/api/v1/top-up/shake-and-win` | `client.GetTopupShakeAndWin(ctx)` | فحص استحقاق جوائز هز واربح بعد تعبئة الرصيد |
+| **59** | `GET` | `/api/v1/top-up/bill-amount` | `client.GetBillAmount(ctx)` | استعلام مبلغ الفاتورة المستحقة وتاريخ استحقاقها للخطوط الآجلة الدفع |
+| **60** | `POST` | `/api/v1/top-up/pay-bill` | `client.PayBill(ctx, phone, amount)` | تسديد ودفع فاتورة الخط الآجل الدفع |
+| **61** | `GET` | `/api/v1/resolution-center/{num}` | `client.GetTicketDetail(ctx, ticketNum)` | متابعة تفاصيل تذكرة شكوى محددة مع مسار المعالجة وردود الدعم |
+| **62** | `GET` | `/api/v1/resolution-center/ticket-form` | `client.GetTicketForm(ctx, category)` | استعلام حقول الإدخال والشروط المطلوبة لتقديم شكوى في قسم محدد |
+| **63** | `GET` | `/api/v1/data-line` | `client.GetDataLineInfo(ctx)` | استعلام بيانات خط البيانات أو راوتر الإنترنت المرتبط بالحساب |
+| **64** | `POST` | `/api/v1/data-line` | `client.PairDataLine(ctx, msisdn, iccid)` | إقران وربط خط راوتر / شريحة بيانات جديدة بالحساب |
+| **65** | `GET` | `/api/v1/multi-line` | `client.GetMultiLineConnections(ctx)` | جلب قائمة كافة الخطوط والراوترات المربوطة بالحساب |
+| **66** | `GET` | `/api/v1/multi-line/home` | `client.GetMultiLineHome(ctx)` | الشاشة الرئيسية ولوحة التحكم بالخطوط المتعددة والراوترات |
+| **67** | `GET` | `/api/v1/search` | `client.Search(ctx, query)` | محرك البحث الشامل في خدمات وباقات وعروض ومراكز آسياسيل |
+| **68** | `GET` | `/api/v1/search/suggestions` | `client.GetSearchSuggestions(ctx, query)` | اقتراحات الإكمال التلقائي الفوري أثناء البحث |
+| **69** | `GET` | `/api/v1/international-services/tariff` | `client.GetInternationalTariffs(ctx)` | جدول أسعار وتعرفة المكالمات الدولية لكل دولة حول العالم |
+| **70** | `GET` | `/api/v1/international-services` | `client.GetInternationalServices(ctx)` | باقات وتخفيضات الاتصال الدولي المتاحة للخط |
+| **71** | `GET` | `/api/v1/reward` | `client.GetLoyaltyRewards(ctx)` | قائمة جوائز ومكافآت نقاط برنامج الولاء (وفاء) |
+| **72** | `GET` | `/api/v1/reward/detail` | `client.GetLoyaltyRewardDetail(ctx)` | تفاصيل ومواصفات المكافأة المحددة والنقاط المطلوبة |
+| **73** | `POST` | `/api/v1/eo` | `client.RedeemLoyaltyReward(ctx)` | إرسال طلب استبدال النقاط بالمكافأة وتوليد رمز الاستلام |
+| **74** | `GET` | `/api/v1/eo/check-status` | `client.CheckLoyaltyRewardStatus(ctx, pid)` | فحص حالة كود استلام المكافأة المستبدلة |
+| **75** | `POST` | `/api/v3/profile/update` | `client.UpdateProfileInfo(ctx, name, email)` | تعديل وتحديث بيانات المشترك (الاسم الكامل والبريد الإلكتروني) |
+| **76** | `GET` | `/api/v1/addon/datacap/limit` | `client.GetDataCapLimit(ctx)` | استعلام سقف البيانات اليومي المفروض حالياً على الخط |
+| **77** | `GET` | `/api/v1/addon/share/limit` | `client.GetBundleShareLimit(ctx)` | استعلام سقف الميغابايت المخصص لكل رقم مشارك في الباقة |
+| **78** | `GET` | `/api/v1/addon/share` | `client.GetManageLines(ctx)` | جلب قائمة الأرقام والخطوط المشاركة الفعالة في الباقة العائلية |
 
 ---
 

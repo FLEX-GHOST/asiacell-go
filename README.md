@@ -7,7 +7,7 @@
 **Production-grade, zero-dependency Go SDK for Asiacell Iraq APIs**
 
 [![Go Version](https://img.shields.io/badge/Go-1.26+-18181b?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
-[![Verified Endpoints](https://img.shields.io/badge/Endpoints-55%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
+[![Verified Endpoints](https://img.shields.io/badge/Endpoints-78%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
 [![Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(Stdlib)-18181b?style=flat-square)](https://pkg.go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-18181b?style=flat-square)](LICENSE)
 
@@ -29,7 +29,7 @@ asiacell-go/
 │       ├── client.go            # إعداد العميل، الترويسات، وإدارة الجلسات
 │       ├── auth.go              # المصادقة، OTP، والكابتشا
 │       ├── profile.go           # الملف الشخصي، الرصيد، والباقات الفعالة
-│       ├── services.go          # كافة خدمات آسياسيل الـ 55 الرسمية
+│       ├── services.go          # كافة خدمات آسياسيل الـ 78 الرسمية
 │       └── types.go             # هياكل البيانات ونماذج الاستجابة JSON
 ├── examples/                    # أمثلة عملية مستقلة لكل خدمة
 │   ├── 01_auth_and_session/     # تسجيل الدخول وحفظ الجلسات
@@ -42,7 +42,7 @@ asiacell-go/
 │   ├── 08_spin_wheel_and_rewards/ # عجلة الحظ
 │   ├── 09_cdr_incoming_transfer_verification/ # التحقق التلقائي من الحوالات
 │   └── 10_advanced_features/    # الأرقام المميزة، التعويضات، والشكاوى
-├── ENDPOINTS.md                 # التوثيق التقني لجميع نقاط النهاية الـ 55
+├── ENDPOINTS.md                 # التوثيق التقني لجميع نقاط النهاية الـ 78
 ├── README.md
 └── go.mod
 ```
@@ -51,7 +51,7 @@ asiacell-go/
 
 ## ميزات وقدرات المكتبة (Features)
 
-المكتبة تغطي 55 واجهة برمجية (Endpoints) رسمية تم فحصها والتحقق من سلامتها بنسبة 100%:
+المكتبة تغطي 78 واجهة برمجية (Endpoints) رسمية تم فحصها والتحقق من سلامتها بنسبة 100%:
 
 ### 1. المصادقة وإدارة الجلسات (Authentication & Sessions)
 - **طلب رمز التحقق (SMS OTP)**: `Login(ctx, phone)` لإرسال رمز الدخول مباشرة للهاتف.
@@ -88,6 +88,7 @@ asiacell-go/
 
 ### 5. الدعم الفني والتعويضات والخدمات الرقمية (Tickets, Compensation & E-Cards)
 - **نظام التذاكر والشكاوى**: `GetTicketCategories(ctx)` و `GetTickets(ctx)` و `CreateTicket(ctx, categoryId, description)` لفتح ومتابعة تذاكر الدعم الفني لدى آسياسيل.
+- **تتبع نموذج وتفاصيل التذكرة**: `GetTicketDetail(ctx, ticketNumber)` و `GetTicketForm(ctx, category)`.
 - **فحص التعويضات**: `CheckCompensation(ctx)` للاستعلام عن التعويضات الرسمية المتاحة للخط واستلامها.
 - **إحالات خطوط Yooz**: `GetYoozMGM(ctx)` و `ApplyYoozMGMCode(ctx, code)`.
 - **كروت الألعاب والشحن الرقمي**: `GetEVoucherPackages(ctx)` لتصفح بطاقات PUBG و iTunes و PlayStation.
@@ -101,8 +102,9 @@ asiacell-go/
   - `SwitchActiveAccount(ctx, phone)`: التبديل بين الخطوط لإدارتها بنفس الجلسة.
   - `RemoveLinkedAccount(ctx, phone)`: حذف ارتباط الخط.
 - **مشاركة البيانات وسقوف الاستهلاك (Data Sharing & Caps)**:
-  - `SetDataCapLimit(ctx, limitMB)`: تعيين سقف استهلاك يومي للبيانات.
-  - `SetBundleShareLimit(ctx, phone, limitMB)`: تحديد سقف ميغابايت لكل خط مشارك.
+  - `GetDataCapLimit(ctx)` و `SetDataCapLimit(ctx, limitMB)`: فحص وتعيين سقف استهلاك يومي للبيانات.
+  - `GetBundleShareLimit(ctx)` و `SetBundleShareLimit(ctx, phone, limitMB)`: فحص وتحديد سقف ميغابايت لكل خط مشارك.
+  - `GetManageLines(ctx)`: استعلام الخطوط المشاركة في الباقة.
 - **سجل وتاريخ الباقات**: `GetSubscriptionHistory(ctx)`.
 - **شحن الكارت**: `RechargeVoucher(ctx, phone, voucher, rechargeType)`.
 - **التحكم في حماية الرصيد**: تفعيل أو إلغاء ميزة حماية الرصيد لمنع استهلاك الرصيد الأساسي بعد نفاد باقة الإنترنت (`*223#`).
@@ -116,7 +118,20 @@ asiacell-go/
 - **رصيد الطوارئ ونقاط شكراً**: `GetShukranInfo(ctx)` و `RequestShukranCredit(ctx)`.
 - **خدمات التجوال الدولي**: `GetRoamingInfo(ctx)`.
 
----
+### 8. هز واربح ودفع الفواتير (Shake & Win & Billing)
+- **هز واربح (Shake & Win)**: `GetShakeAndWinStatus(ctx)` و `PlayShakeAndWin(ctx, txID)`.
+- **هدايا ما بعد الشحن**: `GetTopupShakeAndWin(ctx)`.
+- **فواتير الخطوط الآجلة الدفع (Postpaid)**: `GetBillAmount(ctx)` و `PayBill(ctx, phone, amount)`.
+
+### 9. خطوط البيانات والراوترات ومحرك البحث (Data Lines, Routers & Search)
+- **خطوط البيانات والراوترات 4G**: `GetDataLineInfo(ctx)` و `PairDataLine(ctx, msisdn, iccid)`.
+- **إدارة الاتصالات المتعددة**: `GetMultiLineConnections(ctx)` و `GetMultiLineHome(ctx)`.
+- **محرك البحث الشامل**: `Search(ctx, query)` و `GetSearchSuggestions(ctx, query)`.
+- **تحديث الملف الشخصي**: `UpdateProfileInfo(ctx, name, email)`.
+
+### 10. برنامج مكافآت وفاء والتعرفة الدولية (Loyalty Rewards & International Tariffs)
+- **برنامج مكافآت وفاء (Loyalty Rewards)**: `GetLoyaltyRewards(ctx)` و `GetLoyaltyRewardDetail(ctx)` و `RedeemLoyaltyReward(ctx)` و `CheckLoyaltyRewardStatus(ctx, pid)`.
+- **التعرفة والخدمات الدولية**: `GetInternationalTariffs(ctx)` و `GetInternationalServices(ctx)`.
 
 ## البدء السريع (Quick Start)
 

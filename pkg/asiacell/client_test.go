@@ -1172,3 +1172,195 @@ func TestAdvancedAPKFeatures(t *testing.T) {
 	}
 }
 
+func TestSubsystemsAndExtendedAPIs(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/api/v1/shake-and-win" && r.Method == http.MethodGet:
+			_, _ = w.Write([]byte(`{"success": true, "data": {"title": "هز واربح", "message": "هز هاتفك الآن"}}`))
+		case r.URL.Path == "/api/v1/shake-and-win" && r.Method == http.MethodPost:
+			var req map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			if req["transactionId"] == "tx-123" {
+				_, _ = w.Write([]byte(`{"success": true, "data": {"title": "مبروك", "message": "ربحت 1000MB"}}`))
+			} else {
+				http.Error(w, `{"success": false}`, http.StatusBadRequest)
+			}
+		case r.URL.Path == "/api/v1/top-up/shake-and-win":
+			_, _ = w.Write([]byte(`{"success": true, "data": {"title": "شحن وهز", "message": "متاح"}}`))
+		case r.URL.Path == "/api/v1/top-up/bill-amount":
+			_, _ = w.Write([]byte(`{"success": true, "dueDate": "2026-10-01", "data": 25000.0}`))
+		case r.URL.Path == "/api/v1/top-up/pay-bill" && r.Method == http.MethodPost:
+			_, _ = w.Write([]byte(`{"success": true, "message": "bill paid"}`))
+		case r.URL.Path == "/api/v1/resolution-center/TCK-101":
+			_, _ = w.Write([]byte(`{"success": true, "data": {"ticketNumber": "TCK-101", "category": "network", "status": "in_progress"}}`))
+		case strings.HasPrefix(r.URL.Path, "/api/v1/resolution-center/ticket-form"):
+			if r.URL.Query().Get("category") == "network" {
+				_, _ = w.Write([]byte(`{"success": true, "data": [{"key": "location", "label": "الموقع", "type": "text", "required": true}]}`))
+			} else {
+				http.Error(w, `{"success": false}`, http.StatusBadRequest)
+			}
+		case r.URL.Path == "/api/v1/data-line" && r.Method == http.MethodGet:
+			_, _ = w.Write([]byte(`{"success": true, "data": {"msisdn": "07709990000", "iccid": "8996411223344", "status": "active"}}`))
+		case r.URL.Path == "/api/v1/data-line" && r.Method == http.MethodPost:
+			_, _ = w.Write([]byte(`{"success": true, "message": "paired"}`))
+		case r.URL.Path == "/api/v1/multi-line":
+			_, _ = w.Write([]byte(`{"success": true, "data": [{"msisdn": "07709990000", "type": "router", "status": "active"}]}`))
+		case r.URL.Path == "/api/v1/multi-line/home":
+			_, _ = w.Write([]byte(`{"success": true, "data": {"headers": [], "bodies": []}}`))
+		case r.URL.Path == "/api/v1/search":
+			if r.URL.Query().Get("q") == "internet" {
+				_, _ = w.Write([]byte(`{"success": true, "data": [{"id": 1, "title": "باقة 4G", "description": "سريعة"}]}`))
+			} else {
+				http.Error(w, `{"success": false}`, http.StatusBadRequest)
+			}
+		case r.URL.Path == "/api/v1/search/suggestions":
+			if r.URL.Query().Get("q") == "int" {
+				_, _ = w.Write([]byte(`{"success": true, "data": ["internet", "international"]}`))
+			} else {
+				http.Error(w, `{"success": false}`, http.StatusBadRequest)
+			}
+		case r.URL.Path == "/api/v1/international-services/tariff":
+			_, _ = w.Write([]byte(`{"success": true, "data": [{"countryCode": "US", "countryName": "USA", "ratePerMin": 150.0}]}`))
+		case r.URL.Path == "/api/v1/international-services":
+			_, _ = w.Write([]byte(`{"success": true, "data": {"bodies": [{"items": [{"title": "خصم دولي", "description": "تخفيض 50%"}]}]}}`))
+		case r.URL.Path == "/api/v1/reward" && r.Method == http.MethodGet:
+			_, _ = w.Write([]byte(`{"success": true, "data": [{"id": "rew-1", "title": "كوبون تسوق", "points": 500}]}`))
+		case r.URL.Path == "/api/v1/reward/detail":
+			_, _ = w.Write([]byte(`{"success": true, "data": {"id": "rew-1", "title": "كوبون تسوق", "points": 500}}`))
+		case r.URL.Path == "/api/v1/eo" && r.Method == http.MethodPost:
+			_, _ = w.Write([]byte(`{"success": true, "pid": "eo-pid-999"}`))
+		case r.URL.Path == "/api/v1/eo/check-status":
+			if r.URL.Query().Get("pid") == "eo-pid-999" {
+				_, _ = w.Write([]byte(`{"success": true}`))
+			} else {
+				http.Error(w, `{"success": false}`, http.StatusBadRequest)
+			}
+		case r.URL.Path == "/api/v3/profile/update":
+			_, _ = w.Write([]byte(`{"success": true, "message": "updated"}`))
+		case r.URL.Path == "/api/v1/addon/datacap/limit":
+			_, _ = w.Write([]byte(`{"success": true, "data": [{"msisdn": "07701112233", "limitMB": 5000, "consumedMB": 1200, "remainingMB": 3800}]}`))
+		case r.URL.Path == "/api/v1/addon/share/limit":
+			_, _ = w.Write([]byte(`{"success": true, "data": [{"msisdn": "07701112233", "limitMB": 1024, "consumedMB": 200, "remainingMB": 824}]}`))
+		case r.URL.Path == "/api/v1/addon/share":
+			_, _ = w.Write([]byte(`{"success": true, "data": [{"msisdn": "07701112233", "role": "child", "status": "active"}]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	client, err := NewClient()
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+	client.baseURL = ts.URL
+	client.accessToken = "mock-token"
+	ctx := context.Background()
+
+	// 1. Shake & Win
+	shakeStatus, err := client.GetShakeAndWinStatus(ctx)
+	if err != nil || shakeStatus.Title != "هز واربح" {
+		t.Fatalf("GetShakeAndWinStatus failed: %v", err)
+	}
+	playShake, err := client.PlayShakeAndWin(ctx, "tx-123")
+	if err != nil || playShake.Title != "مبروك" {
+		t.Fatalf("PlayShakeAndWin failed: %v", err)
+	}
+	topupShake, err := client.GetTopupShakeAndWin(ctx)
+	if err != nil || topupShake.Title != "شحن وهز" {
+		t.Fatalf("GetTopupShakeAndWin failed: %v", err)
+	}
+
+	// 2. Postpaid Bill Payment
+	bill, err := client.GetBillAmount(ctx)
+	if err != nil || bill.Data != 25000.0 {
+		t.Fatalf("GetBillAmount failed: %v", err)
+	}
+	if err := client.PayBill(ctx, "07701112233", 25000.0); err != nil {
+		t.Fatalf("PayBill failed: %v", err)
+	}
+
+	// 3. Ticket Tracking & Forms
+	tDetail, err := client.GetTicketDetail(ctx, "TCK-101")
+	if err != nil || tDetail.TicketNumber != "TCK-101" {
+		t.Fatalf("GetTicketDetail failed: %v", err)
+	}
+	tForm, err := client.GetTicketForm(ctx, "network")
+	if err != nil || len(tForm) != 1 {
+		t.Fatalf("GetTicketForm failed: %v", err)
+	}
+
+	// 4. Data Lines & Routers
+	dLine, err := client.GetDataLineInfo(ctx)
+	if err != nil || dLine.MSISDN != "07709990000" {
+		t.Fatalf("GetDataLineInfo failed: %v", err)
+	}
+	if err := client.PairDataLine(ctx, "07709990000", "8996411223344"); err != nil {
+		t.Fatalf("PairDataLine failed: %v", err)
+	}
+	mConns, err := client.GetMultiLineConnections(ctx)
+	if err != nil || len(mConns) != 1 {
+		t.Fatalf("GetMultiLineConnections failed: %v", err)
+	}
+	mHome, err := client.GetMultiLineHome(ctx)
+	if err != nil || mHome == nil {
+		t.Fatalf("GetMultiLineHome failed: %v", err)
+	}
+
+	// 5. Global Search Engine
+	sResults, err := client.Search(ctx, "internet")
+	if err != nil || len(sResults) != 1 {
+		t.Fatalf("Search failed: %v", err)
+	}
+	sSuggestions, err := client.GetSearchSuggestions(ctx, "int")
+	if err != nil || len(sSuggestions) != 2 {
+		t.Fatalf("GetSearchSuggestions failed: %v", err)
+	}
+
+	// 6. International Tariffs & Services
+	tariffs, err := client.GetInternationalTariffs(ctx)
+	if err != nil || len(tariffs) != 1 || tariffs[0].CountryCode != "US" {
+		t.Fatalf("GetInternationalTariffs failed: %v", err)
+	}
+	intlServices, err := client.GetInternationalServices(ctx)
+	if err != nil || len(intlServices) != 1 {
+		t.Fatalf("GetInternationalServices failed: %v", err)
+	}
+
+	// 7. Loyalty Rewards & Wafaa
+	rewards, err := client.GetLoyaltyRewards(ctx)
+	if err != nil || len(rewards) != 1 {
+		t.Fatalf("GetLoyaltyRewards failed: %v", err)
+	}
+	rewDetail, err := client.GetLoyaltyRewardDetail(ctx)
+	if err != nil || rewDetail.ID != "rew-1" {
+		t.Fatalf("GetLoyaltyRewardDetail failed: %v", err)
+	}
+	redeem, err := client.RedeemLoyaltyReward(ctx)
+	if err != nil || redeem.PID != "eo-pid-999" {
+		t.Fatalf("RedeemLoyaltyReward failed: %v", err)
+	}
+	status, err := client.CheckLoyaltyRewardStatus(ctx, "eo-pid-999")
+	if err != nil || !status {
+		t.Fatalf("CheckLoyaltyRewardStatus failed: %v", err)
+	}
+
+	// 8. Profile & Limits Inspection
+	if err := client.UpdateProfileInfo(ctx, "Mustafa", "mustafa@example.com"); err != nil {
+		t.Fatalf("UpdateProfileInfo failed: %v", err)
+	}
+	dataCap, err := client.GetDataCapLimit(ctx)
+	if err != nil || len(dataCap) != 1 {
+		t.Fatalf("GetDataCapLimit failed: %v", err)
+	}
+	shareLimit, err := client.GetBundleShareLimit(ctx)
+	if err != nil || len(shareLimit) != 1 {
+		t.Fatalf("GetBundleShareLimit failed: %v", err)
+	}
+	manageLines, err := client.GetManageLines(ctx)
+	if err != nil || len(manageLines) != 1 {
+		t.Fatalf("GetManageLines failed: %v", err)
+	}
+}
+
