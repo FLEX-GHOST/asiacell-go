@@ -762,3 +762,164 @@ type AddonSubscribeResponse struct {
 
 
 
+// --- Vanity VIP Numbers ---
+
+type VanityClass struct {
+	ID    FlexString `json:"id"`
+	Title FlexString `json:"title"`
+	Price FlexString `json:"price"`
+	Icon  string     `json:"icon"`
+}
+
+type VanityClassesResponse struct {
+	Success bool          `json:"success"`
+	Message string        `json:"message"`
+	Data    []VanityClass `json:"data"`
+}
+
+type VanityNumberItem struct {
+	MSISDN    FlexString `json:"msisdn"`
+	ClassID   FlexString `json:"classId"`
+	ClassName FlexString `json:"className"`
+	Price     FlexString `json:"price"`
+	Currency  FlexString `json:"currency"`
+	Status    FlexString `json:"status"`
+}
+
+type VanitySearchData struct {
+	Total int                `json:"total"`
+	List  []VanityNumberItem `json:"list"`
+}
+
+type VanitySearchResponse struct {
+	Success bool              `json:"success"`
+	Message string            `json:"message"`
+	Data    *VanitySearchData `json:"data"`
+}
+
+type VanityDetailResponse struct {
+	Success bool              `json:"success"`
+	Message string            `json:"message"`
+	Data    *VanityNumberItem `json:"data"`
+}
+
+type ReserveVanityRequest struct {
+	MSISDN  string `json:"msisdn"`
+	ClassID string `json:"classId"`
+}
+
+type ReserveVanityResponse struct {
+	Success bool       `json:"success"`
+	Message string     `json:"message"`
+	PID     FlexString `json:"pid"`
+}
+
+// --- Gifting Addons ---
+
+type SendGiftRequest struct {
+	AddonID        int    `json:"addOnId"`
+	ReceiverMSISDN string `json:"receiverMsisdn"`
+}
+
+type SendGiftResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// --- Resolution Center / Support Tickets ---
+
+type TicketCategory struct {
+	ID    FlexString `json:"id"`
+	Title FlexString `json:"title"`
+	Icon  string     `json:"icon"`
+}
+
+type TicketCategoriesResponse struct {
+	Success bool             `json:"success"`
+	Message string           `json:"message"`
+	Data    []TicketCategory `json:"data"`
+}
+
+type TicketItem struct {
+	TicketNumber string     `json:"ticketNumber"`
+	Category     FlexString `json:"category"`
+	Status       FlexString `json:"status"`
+	Subject      FlexString `json:"subject"`
+	Description  FlexString `json:"description"`
+	CreatedAt    FlexString `json:"createdAt"`
+	UpdatedAt    FlexString `json:"updatedAt"`
+}
+
+type TicketsResponse struct {
+	Success bool         `json:"success"`
+	Message string       `json:"message"`
+	Data    []TicketItem `json:"data"`
+}
+
+type SubmitTicketRequest struct {
+	CategoryID  string `json:"category"`
+	Description string `json:"description"`
+}
+
+type SubmitTicketResponse struct {
+	Success      bool       `json:"success"`
+	Message      string     `json:"message"`
+	TicketNumber FlexString `json:"ticketNumber"`
+}
+
+// --- Compensation System ---
+
+type CompensationItem struct {
+	ID          FlexString `json:"id"`
+	Title       FlexString `json:"title"`
+	Description FlexString `json:"description"`
+	Benefit     FlexString `json:"benefit"`
+	Eligible    bool       `json:"eligible"`
+	Claimed     bool       `json:"claimed"`
+}
+
+type CompensationResponse struct {
+	Success bool               `json:"success"`
+	Message string             `json:"message"`
+	Data    []CompensationItem `json:"data"`
+}
+
+// --- Yooz MGM Referral System ---
+
+type YoozMGMData struct {
+	ReferralCode string `json:"referralCode"`
+	ShareLink    string `json:"shareLink"`
+	TotalInvites int    `json:"totalInvites"`
+	TotalEarned  string `json:"totalEarned"`
+}
+
+type YoozMGMResponse struct {
+	Success bool         `json:"success"`
+	Message string       `json:"message"`
+	Data    *YoozMGMData `json:"data"`
+}
+
+type ApplyPromoRequest struct {
+	PromoCode string `json:"promoCode"`
+}
+
+type ApplyPromoResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// --- E-Voucher Packages (Digital Gaming / App Cards) ---
+
+type EVoucherPackageItem struct {
+	ID       int        `json:"id"`
+	Title    FlexString `json:"title"`
+	Category FlexString `json:"category"`
+	Price    FlexString `json:"price"`
+	ImageURL string     `json:"imageUrl"`
+}
+
+type EVoucherPackagesResponse struct {
+	Success bool                  `json:"success"`
+	Message string                `json:"message"`
+	Data    []EVoucherPackageItem `json:"data"`
+}

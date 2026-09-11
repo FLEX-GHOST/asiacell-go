@@ -1305,3 +1305,314 @@ func (c *Client) SubscribeAddon(ctx context.Context, itemID int) (*AddonSubscrib
 
 
 
+
+// ========================================================================
+// 12. Vanity Numbers Marketplace (الأرقام المميزة)
+// ========================================================================
+
+// GetVanityClasses retrieves available tiers and categories of VIP numbers (Gold, Silver, Platinum).
+func (c *Client) GetVanityClasses(ctx context.Context) (*VanityClassesResponse, error) {
+	path := fmt.Sprintf("/api/v2/vanity/classes?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting vanity classes: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res VanityClassesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding vanity classes response: %w", err)
+	}
+	return &res, nil
+}
+
+// SearchVanityNumbers searches available VIP numbers matching an optional pattern or tier.
+func (c *Client) SearchVanityNumbers(ctx context.Context, pattern, classID string, page, limit int) (*VanitySearchResponse, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if page <= 0 {
+		page = 1
+	}
+
+	path := fmt.Sprintf("/api/v2/vanity?msisdn=%s&classId=%s&page=%d&limit=%d&lang=%s",
+		cleanDigits(pattern), classID, page, limit, c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("searching vanity numbers: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res VanitySearchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding vanity search response: %w", err)
+	}
+	return &res, nil
+}
+
+// GetVanityDetail retrieves price and reservation details for a specific VIP phone number.
+func (c *Client) GetVanityDetail(ctx context.Context, msisdn string) (*VanityDetailResponse, error) {
+	path := fmt.Sprintf("/api/v2/vanity/%s/detail?lang=%s", cleanDigits(msisdn), c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting vanity detail: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res VanityDetailResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding vanity detail response: %w", err)
+	}
+	return &res, nil
+}
+
+// ReserveVanityNumber reserves a chosen VIP number for the current subscriber.
+func (c *Client) ReserveVanityNumber(ctx context.Context, msisdn, classID string) (*ReserveVanityResponse, error) {
+	payload, err := json.Marshal(ReserveVanityRequest{
+		MSISDN:  cleanDigits(msisdn),
+		ClassID: classID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshaling reserve vanity request: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v2/vanity?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("reserving vanity number: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res ReserveVanityResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding reserve vanity response: %w", err)
+	}
+	return &res, nil
+}
+
+// ========================================================================
+// 13. Gifting Addons to Others (إهداء الباقات للغير)
+// ========================================================================
+
+// SendGiftAddon purchases an internet/calls package and gifts it directly to another Asiacell number.
+func (c *Client) SendGiftAddon(ctx context.Context, addonID int, receiverPhone string) error {
+	payload, err := json.Marshal(SendGiftRequest{
+		AddonID:        addonID,
+		ReceiverMSISDN: cleanDigits(receiverPhone),
+	})
+	if err != nil {
+		return fmt.Errorf("marshaling send gift request: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/addon/send-as-gift?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("sending gift addon: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return ErrUnauthorized
+	}
+
+	var res SendGiftResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return fmt.Errorf("decoding send gift response: %w", err)
+	}
+
+	if !res.Success {
+		return fmt.Errorf("%w: %s", ErrRequestFailed, res.Message)
+	}
+	return nil
+}
+
+// ========================================================================
+// 14. Resolution Center & Support Tickets (نظام الشكاوى وتذاكر الدعم)
+// ========================================================================
+
+// GetTicketCategories fetches the available complaint and technical issue categories from Asiacell.
+func (c *Client) GetTicketCategories(ctx context.Context) ([]TicketCategory, error) {
+	path := fmt.Sprintf("/api/v1/resolution-center/categories?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting ticket categories: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res TicketCategoriesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding ticket categories response: %w", err)
+	}
+	return res.Data, nil
+}
+
+// GetTickets lists the open and closed support tickets submitted by the user.
+func (c *Client) GetTickets(ctx context.Context) ([]TicketItem, error) {
+	path := fmt.Sprintf("/api/v1/resolution-center?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting tickets: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res TicketsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding tickets response: %w", err)
+	}
+	return res.Data, nil
+}
+
+// CreateTicket submits an official support ticket to Asiacell operations.
+func (c *Client) CreateTicket(ctx context.Context, categoryID, description string) (*SubmitTicketResponse, error) {
+	payload, err := json.Marshal(SubmitTicketRequest{
+		CategoryID:  categoryID,
+		Description: description,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshaling submit ticket request: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/resolution-center?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("submitting ticket: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res SubmitTicketResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding submit ticket response: %w", err)
+	}
+	return &res, nil
+}
+
+// ========================================================================
+// 15. Compensation System (نظام التعويضات التلقائي)
+// ========================================================================
+
+// CheckCompensation checks if the line is eligible for any compensation benefits from Asiacell.
+func (c *Client) CheckCompensation(ctx context.Context) (*CompensationResponse, error) {
+	path := fmt.Sprintf("/api/v1/compensation?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("checking compensation: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res CompensationResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding compensation response: %w", err)
+	}
+	return &res, nil
+}
+
+// ========================================================================
+// 16. Yooz MGM Referral System (برنامج إحالات خطوط الشباب)
+// ========================================================================
+
+// GetYoozMGM retrieves the subscriber's referral code and invitation stats for Yooz youth lines.
+func (c *Client) GetYoozMGM(ctx context.Context) (*YoozMGMResponse, error) {
+	path := fmt.Sprintf("/api/v1/yooz-mgm?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting yooz mgm: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res YoozMGMResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding yooz mgm response: %w", err)
+	}
+	return &res, nil
+}
+
+// ApplyYoozMGMCode applies an invitation promo code to receive bonus gigabytes and credit.
+func (c *Client) ApplyYoozMGMCode(ctx context.Context, promoCode string) error {
+	payload, err := json.Marshal(ApplyPromoRequest{
+		PromoCode: strings.TrimSpace(promoCode),
+	})
+	if err != nil {
+		return fmt.Errorf("marshaling apply promo request: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/yooz-mgm/apply-code?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("applying yooz promo code: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return ErrUnauthorized
+	}
+
+	var res ApplyPromoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return fmt.Errorf("decoding apply promo response: %w", err)
+	}
+
+	if !res.Success {
+		return fmt.Errorf("%w: %s", ErrRequestFailed, res.Message)
+	}
+	return nil
+}
+
+// ========================================================================
+// 17. E-Vouchers (كروت الألعاب والشحن الرقمي)
+// ========================================================================
+
+// GetEVoucherPackages browses available digital gaming and app store gift cards (PUBG, iTunes, PlayStation).
+func (c *Client) GetEVoucherPackages(ctx context.Context) (*EVoucherPackagesResponse, error) {
+	path := fmt.Sprintf("/api/v2/e-voucher/packages?recharge-type=1&lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting evoucher packages: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res EVoucherPackagesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding evoucher packages response: %w", err)
+	}
+	return &res, nil
+}

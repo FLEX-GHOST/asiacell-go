@@ -771,3 +771,200 @@ func TestCaptchaLoginRetry(t *testing.T) {
 
 
 
+
+func TestVanityAndGifting(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v2/vanity/classes":
+			_ = json.NewEncoder(w).Encode(VanityClassesResponse{
+				Success: true,
+				Data: []VanityClass{
+					{ID: "1", Title: "Gold VIP", Price: "50000 IQD"},
+					{ID: "2", Title: "Silver VIP", Price: "25000 IQD"},
+				},
+			})
+		case "/api/v2/vanity":
+			if r.Method == http.MethodGet {
+				_ = json.NewEncoder(w).Encode(VanitySearchResponse{
+					Success: true,
+					Data: &VanitySearchData{
+						Total: 1,
+						List: []VanityNumberItem{
+							{MSISDN: "07700001111", ClassName: "Gold VIP", Price: "50000"},
+						},
+					},
+				})
+			} else if r.Method == http.MethodPost {
+				_ = json.NewEncoder(w).Encode(ReserveVanityResponse{
+					Success: true,
+					PID:     "pid_reserve_1234",
+				})
+			}
+		case "/api/v2/vanity/07700001111/detail":
+			_ = json.NewEncoder(w).Encode(VanityDetailResponse{
+				Success: true,
+				Data: &VanityNumberItem{
+					MSISDN: "07700001111",
+					Price:  "50000",
+				},
+			})
+		case "/api/v1/addon/send-as-gift":
+			_ = json.NewEncoder(w).Encode(SendGiftResponse{
+				Success: true,
+				Message: "gift sent successfully",
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	client, err := NewClient()
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+	client.baseURL = ts.URL
+	ctx := context.Background()
+
+	classes, err := client.GetVanityClasses(ctx)
+	if err != nil || len(classes.Data) != 2 {
+		t.Fatalf("GetVanityClasses failed: %v, len: %d", err, len(classes.Data))
+	}
+
+	searchRes, err := client.SearchVanityNumbers(ctx, "0770000", "1", 1, 10)
+	if err != nil || searchRes.Data.Total != 1 {
+		t.Fatalf("SearchVanityNumbers failed: %v", err)
+	}
+
+	detail, err := client.GetVanityDetail(ctx, "07700001111")
+	if err != nil || string(detail.Data.Price) != "50000" {
+		t.Fatalf("GetVanityDetail failed: %v", err)
+	}
+
+	reserve, err := client.ReserveVanityNumber(ctx, "07700001111", "1")
+	if err != nil || string(reserve.PID) != "pid_reserve_1234" {
+		t.Fatalf("ReserveVanityNumber failed: %v", err)
+	}
+
+	if err := client.SendGiftAddon(ctx, 42, "07711223344"); err != nil {
+		t.Fatalf("SendGiftAddon failed: %v", err)
+	}
+}
+
+func TestTicketsAndCompensation(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/resolution-center/categories":
+			_ = json.NewEncoder(w).Encode(TicketCategoriesResponse{
+				Success: true,
+				Data: []TicketCategory{
+					{ID: "cat_1", Title: "Network Problem"},
+				},
+			})
+		case "/api/v1/resolution-center":
+			if r.Method == http.MethodGet {
+				_ = json.NewEncoder(w).Encode(TicketsResponse{
+					Success: true,
+					Data: []TicketItem{
+						{TicketNumber: "T-9988", Status: "OPEN", Subject: "Slow 4G"},
+					},
+				})
+			} else if r.Method == http.MethodPost {
+				_ = json.NewEncoder(w).Encode(SubmitTicketResponse{
+					Success:      true,
+					TicketNumber: "T-9988",
+				})
+			}
+		case "/api/v1/compensation":
+			_ = json.NewEncoder(w).Encode(CompensationResponse{
+				Success: true,
+				Data: []CompensationItem{
+					{ID: "comp_1", Title: "Maintenance Outage Refund", Benefit: "5GB Free Data", Eligible: true},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	client, err := NewClient()
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+	client.baseURL = ts.URL
+	ctx := context.Background()
+
+	cats, err := client.GetTicketCategories(ctx)
+	if err != nil || len(cats) != 1 {
+		t.Fatalf("GetTicketCategories failed: %v", err)
+	}
+
+	tickets, err := client.GetTickets(ctx)
+	if err != nil || len(tickets) != 1 || tickets[0].TicketNumber != "T-9988" {
+		t.Fatalf("GetTickets failed: %v", err)
+	}
+
+	created, err := client.CreateTicket(ctx, "cat_1", "Slow 4G in Baghdad")
+	if err != nil || string(created.TicketNumber) != "T-9988" {
+		t.Fatalf("CreateTicket failed: %v", err)
+	}
+
+	comp, err := client.CheckCompensation(ctx)
+	if err != nil || len(comp.Data) != 1 || !comp.Data[0].Eligible {
+		t.Fatalf("CheckCompensation failed: %v", err)
+	}
+}
+
+func TestYoozAndEVouchers(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/yooz-mgm":
+			_ = json.NewEncoder(w).Encode(YoozMGMResponse{
+				Success: true,
+				Data: &YoozMGMData{
+					ReferralCode: "YOOZ123",
+					TotalInvites: 5,
+				},
+			})
+		case "/api/v1/yooz-mgm/apply-code":
+			_ = json.NewEncoder(w).Encode(ApplyPromoResponse{
+				Success: true,
+			})
+		case "/api/v2/e-voucher/packages":
+			_ = json.NewEncoder(w).Encode(EVoucherPackagesResponse{
+				Success: true,
+				Data: []EVoucherPackageItem{
+					{ID: 1, Title: "PUBG 60 UC", Price: "1500 IQD"},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	client, err := NewClient()
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+	client.baseURL = ts.URL
+	ctx := context.Background()
+
+	mgm, err := client.GetYoozMGM(ctx)
+	if err != nil || mgm.Data.ReferralCode != "YOOZ123" {
+		t.Fatalf("GetYoozMGM failed: %v", err)
+	}
+
+	if err := client.ApplyYoozMGMCode(ctx, "PROMO99"); err != nil {
+		t.Fatalf("ApplyYoozMGMCode failed: %v", err)
+	}
+
+	vouchers, err := client.GetEVoucherPackages(ctx)
+	if err != nil || len(vouchers.Data) != 1 || string(vouchers.Data[0].Title) != "PUBG 60 UC" {
+		t.Fatalf("GetEVoucherPackages failed: %v", err)
+	}
+}
