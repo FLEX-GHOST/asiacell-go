@@ -6,13 +6,13 @@
 
 **المواصفات الكاملة لجميع نقاط نهاية HTTP REST API لشركة آسياسيل العراق، مستخرجة ومفحوصة بالكامل مع خوادم الإنتاج.**
 
-[![Specification](https://img.shields.io/badge/الحالة-100%25%20مفحوص%20ومعتمد-E7242A?style=flat-square)](ENDPOINTS.md)
-[![Protocol](https://img.shields.io/badge/البروتوكول-HTTPS%2FREST-18181b?style=flat-square)](ENDPOINTS.md)
-[![Client](https://img.shields.io/badge/حزمة%20Go-asiacell--go-18181b?style=flat-square)](https://github.com/FLEX-GHOST/asiacell-go)
+[![Specification](https://img.shields.io/badge/Specification-100%25%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
+[![Protocol](https://img.shields.io/badge/Protocol-HTTPS%2FREST-18181b?style=flat-square)](ENDPOINTS.md)
+[![Client](https://img.shields.io/badge/Go%20Client-asiacell--go-18181b?style=flat-square)](https://github.com/FLEX-GHOST/asiacell-go)
 
 <br />
 
-جميع نقاط النهاية الموضحة أدناه تم فحصها والتحقق منها مباشرة مقابل خوادم آسيasيل الرسمية (`odpapp.asiacell.com` و `app.asiacell.com`) مع اجتياز اختبارات الوحدة والاختبارات الحية ومعالجة الأخطاء.
+جميع نقاط النهاية الموضحة أدناه تم فحصها والتحقق منها مباشرة مقابل خوادم آسياسيل الرسمية (`odpapp.asiacell.com` و `app.asiacell.com`) مع اجتياز اختبارات الوحدة والاختبارات الحية ومعالجة الأخطاء.
 
 </div>
 
