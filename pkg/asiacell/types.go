@@ -242,6 +242,34 @@ type TransferHistoryResponse struct {
 	Data    []TransactionRecord `json:"data"`
 }
 
+// CDRRecord represents an in-app Call Detail Record (CDR) ledger entry for balance transfers.
+type CDRRecord struct {
+	Amount      FlexString `json:"amount"`      // e.g. "1000 IQD" (or "-1000 IQD" for outgoing)
+	Unit        FlexString `json:"unit"`        // "TRANSFERS"
+	Title       FlexString `json:"title"`       // "تحويل الرصيد"
+	SubTitle    FlexString `json:"subTitle"`    // Sender/Receiver phone number (e.g. "7744298878")
+	Description FlexString `json:"description"` // Timestamp e.g. "١١/٠٩/٢٠٢٦ ٠٦:٢٣:٤٣"
+}
+
+// CDRDetailData contains the paginated list of CDR records.
+type CDRDetailData struct {
+	Total int         `json:"total"`
+	Data  []CDRRecord `json:"data"`
+}
+
+// CDRDetailResponse represents the response envelope from /api/v1/cdr/detail.
+type CDRDetailResponse struct {
+	Code    int            `json:"code"`
+	Message string         `json:"message"`
+	Success bool           `json:"success"`
+	Data    *CDRDetailData `json:"data"`
+}
+
+// CDRConfirmRequest represents the body payload for /api/v1/cdr/confirm.
+type CDRConfirmRequest struct {
+	Code string `json:"code"`
+}
+
 type BundleRecord struct {
 	BundleName   FlexString `json:"bundleName"`
 	ActivationAt FlexString `json:"activationAt"`

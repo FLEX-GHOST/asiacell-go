@@ -16,6 +16,7 @@ This directory contains clean, production-grade, standalone examples demonstrati
 | **`06_services_management`**| Internet balance protection (*223#), cancellation guides (299/4151/300), digital services. | `go run examples/06_services_management/main.go` |
 | **`07_shops_and_governorates`**| Iraqi governorates/cities coverage, certified branches, coordinates, and real-time open status. | `go run examples/07_shops_and_governorates/main.go` |
 | **`08_spin_wheel_and_rewards`**| Checking and playing the daily spin wheel, Shukran emergency loans, roaming, promotions. | `go run examples/08_spin_wheel_and_rewards/main.go` |
+| **`09_cdr_incoming_transfer_verification`**| Automated incoming credit transfer verification via CDR ledger without admin intervention. | `go run examples/09_cdr_incoming_transfer_verification/main.go` |
 | **`interactive_cli`** | An all-in-one terminal CLI application with an interactive text menu for all features. | `go run examples/interactive_cli/main.go` |
 
 ---
@@ -39,12 +40,8 @@ go run examples/01_auth_and_session/main.go
 go run examples/02_account_and_profile/main.go
 ```
 
-### 4. Browse 4G Unlimited Packages
+### 4. Automated CDR Transfer Verification (Payment Gateway)
+To verify incoming customer payments against the official Asiacell CDR ledger:
 ```bash
-go run examples/03_bundles_and_4g/main.go
-```
-
-### 5. Check Certified Shops in Baghdad or Any Governorate
-```bash
-go run examples/07_shops_and_governorates/main.go
+go run examples/09_cdr_incoming_transfer_verification/main.go
 ```

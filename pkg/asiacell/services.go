@@ -174,10 +174,83 @@ func (c *Client) VerifyTransferTo(ctx context.Context, targetPhone string, minAm
 	return false, nil, nil
 }
 
+// GetCDRTransferHistory fetches incoming and outgoing balance transfer records directly from Asiacell's CDR ledger.
+func (c *Client) GetCDRTransferHistory(ctx context.Context, page, limit int) ([]CDRRecord, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 30
+	}
+	path := fmt.Sprintf("/api/v1/cdr/detail?type=btransfer&page=%d&limit=%d&lang=%s", page, limit, c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting CDR transfer history: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var cdrResp CDRDetailResponse
+	if err := json.NewDecoder(resp.Body).Decode(&cdrResp); err != nil {
+		return nil, fmt.Errorf("decoding CDR transfer history response: %w", err)
+	}
+
+	if !cdrResp.Success || cdrResp.Data == nil {
+		return nil, nil
+	}
+
+	return cdrResp.Data.Data, nil
+}
+
+// SendCDROTP triggers an SMS OTP to activate CDR ledger access for the current session.
+func (c *Client) SendCDROTP(ctx context.Context) error {
+	path := fmt.Sprintf("/api/v1/cdr/send-otp?lang=%s", c.language)
+	body := strings.NewReader("{}")
+	resp, err := c.doRequest(ctx, http.MethodPost, path, body)
+	if err != nil {
+		return fmt.Errorf("requesting CDR OTP: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+// ConfirmCDROTP confirms the SMS OTP code to activate CDR ledger access for the current session.
+func (c *Client) ConfirmCDROTP(ctx context.Context, otpCode string) error {
+	path := fmt.Sprintf("/api/v1/cdr/confirm?lang=%s", c.language)
+	payload, err := json.Marshal(CDRConfirmRequest{Code: otpCode})
+	if err != nil {
+		return fmt.Errorf("marshaling CDR confirmation payload: %w", err)
+	}
+
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("confirming CDR OTP: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+// VerifyIncomingTransfer inspects live CDR records from Asiacell to automatically verify incoming balance transfers from a sender.
 func (c *Client) VerifyIncomingTransfer(ctx context.Context, senderPhone string, minAmount float64) (bool, *TransactionRecord, error) {
 	cleanSender := cleanDigits(senderPhone)
 	if cleanSender == "" {
 		return false, nil, fmt.Errorf("%w: invalid sender phone", ErrRequestFailed)
+	}
+
+	senderTail := cleanSender
+	if len(senderTail) > 9 {
+		senderTail = senderTail[len(senderTail)-9:]
 	}
 
 	c.mu.RLock()
@@ -185,10 +258,11 @@ func (c *Client) VerifyIncomingTransfer(ctx context.Context, senderPhone string,
 	copy(incoming, c.recordedIncomingTransfers)
 	c.mu.RUnlock()
 
+	// 1. Check in-memory recorded transfers (for mocking and tests)
 	for i := range incoming {
 		rec := &incoming[i]
 		cleanRecSender := cleanDigits(string(rec.MSISDN))
-		if cleanRecSender == cleanSender || strings.HasSuffix(cleanRecSender, cleanSender) || strings.HasSuffix(cleanSender, cleanRecSender) {
+		if cleanRecSender == cleanSender || strings.HasSuffix(cleanRecSender, senderTail) || strings.HasSuffix(cleanSender, cleanRecSender) {
 			amtStr := string(rec.Amount)
 			if minAmount <= 0 {
 				return true, rec, nil
@@ -200,12 +274,44 @@ func (c *Client) VerifyIncomingTransfer(ctx context.Context, senderPhone string,
 		}
 	}
 
+	// 2. Query live CDR ledger from Asiacell
+	cdrRecords, err := c.GetCDRTransferHistory(ctx, 1, 30)
+	if err == nil && len(cdrRecords) > 0 {
+		for i := range cdrRecords {
+			cdrRec := &cdrRecords[i]
+			rawAmt := strings.TrimSpace(string(cdrRec.Amount))
+			// Skip outgoing transfers (prefixed with '-')
+			if strings.HasPrefix(rawAmt, "-") {
+				continue
+			}
+
+			recPhone := cleanDigits(string(cdrRec.SubTitle))
+			if recPhone == "" || (!strings.HasSuffix(recPhone, senderTail) && !strings.HasSuffix(cleanSender, recPhone)) {
+				continue
+			}
+
+			amtVal := parseAmountString(rawAmt)
+			if minAmount > 0 && amtVal < minAmount {
+				continue
+			}
+
+			rec := &TransactionRecord{
+				Type:      cdrRec.Title,
+				MSISDN:    FlexString(recPhone),
+				CreatedAt: cdrRec.Description,
+				Amount:    FlexString(fmt.Sprintf("%.0f", amtVal)),
+			}
+			return true, rec, nil
+		}
+	}
+
+		// 3. Fallback to legacy transfer history if needed
 	histRecords, err := c.GetTransferHistory(ctx)
 	if err == nil {
 		for i := range histRecords {
 			rec := &histRecords[i]
 			cleanRecSender := cleanDigits(string(rec.MSISDN))
-			if cleanRecSender == cleanSender || strings.HasSuffix(cleanRecSender, cleanSender) || strings.HasSuffix(cleanSender, cleanRecSender) {
+			if cleanRecSender == cleanSender || strings.HasSuffix(cleanRecSender, senderTail) || strings.HasSuffix(cleanSender, cleanRecSender) {
 				amtStr := string(rec.Amount)
 				if minAmount <= 0 {
 					return true, rec, nil
@@ -219,6 +325,15 @@ func (c *Client) VerifyIncomingTransfer(ctx context.Context, senderPhone string,
 	}
 
 	return false, nil, nil
+}
+
+func parseAmountString(raw string) float64 {
+	clean := strings.ReplaceAll(raw, "IQD", "")
+	clean = strings.ReplaceAll(clean, ",", "")
+	clean = strings.TrimSpace(clean)
+	var val float64
+	_, _ = fmt.Sscanf(clean, "%f", &val)
+	return val
 }
 
 func (c *Client) GetRechargeHistory(ctx context.Context) ([]TransactionRecord, error) {
