@@ -9,7 +9,7 @@
 <br />
 
 [![Specification](https://img.shields.io/badge/Specification-100%25%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
-[![Endpoints](https://img.shields.io/badge/Endpoints-141%20Verified-18181b?style=flat-square)](ENDPOINTS.md)
+[![Endpoints](https://img.shields.io/badge/Endpoints-147%20Verified-18181b?style=flat-square)](ENDPOINTS.md)
 [![Protocol](https://img.shields.io/badge/Protocol-HTTPS%2FREST-18181b?style=flat-square)](ENDPOINTS.md)
 [![Client](https://img.shields.io/badge/Go%20Client-asiacell--go-18181b?style=flat-square)](https://github.com/FLEX-GHOST/asiacell-go)
 
@@ -166,6 +166,12 @@
 | **139** | `POST` | `/api/v1/avocado/profile/save-interests` | `client.SaveUserInterests(ctx, interests)` | حفظ وتحديث قائمة اهتمامات وتفضيلات المشترك |
 | **140** | `GET` | `/api/v1/cdr/summary` | `client.GetCDRSummary(ctx)` | ملخص وإحصائيات تحويلات الرصيد الواردة والصادرة (CDR Summary) |
 | **141** | `POST` | `/api/v1/map-account/resend` | `client.ResendLinkedAccountSMS(ctx, phone)` | إعادة إرسال رمز SMS لتأكيد ربط الخط الإضافي بالحساب |
+| **142** | `POST` | `/api/v1/avocado/bundles/migrate-line` | `client.MigrateLineToYooz(ctx, req)` | تحويل الخط العادي إلى باقة وخط يوز (Yooz) بإرسال بيانات المستخدم وتاريخ الميلاد |
+| **143** | `GET` | `/api/v1/avocado/migrate-out` | `client.GetYoozMigrateOutHome(ctx)` | استعلام شاشة وتعليمات طلب الخروج والرجوع من خط يوز إلى الخط العادي |
+| **144** | `GET` | `/api/v1/avocado/migrate-out/select` | `client.GetYoozMigrateOutLocations(ctx)` | جلب قائمة مراكز وفروع الخدمة المعتمدة لإتمام تحويل الخط |
+| **145** | `POST` | `/api/v1/avocado/migrate-out` | `client.SubmitYoozMigrateOut(ctx)` | تأكيد وإرسال طلب الخروج والتحويل النهائي من يوز للخط العادي |
+| **146** | `GET` | `/api/v1/mosaic/migrate-out` | `client.GetMosaicMigrateOutHome(ctx)` | استعلام شاشة وتعليمات الرجوع من خطوط موزايك (Mosaic) إلى الخط العادي |
+| **147** | `GET` | `/api/v1/mosaic/migrate-out/select` | `client.GetMosaicMigrateOutLocations(ctx)` | استعلام فروع ومراكز الخدمة المعتمدة لتحويل خطوط موزايك |
 
 ---
 
@@ -405,6 +411,40 @@ POST /api/v1/auth/refresh-token
 </div>
 
 - **الغرض**: تسجيل الدخول برقم الهاتف عبر رمز التحقق SMS واستخراج وتجديد التوكنات تلقائياً.
+
+---
+
+### 2.10 تحويل الخط إلى يوز والرجوع إلى الخط العادي (Line Migration Flow)
+
+<div dir="ltr" align="left">
+
+```http
+POST /api/v1/avocado/bundles/migrate-line
+GET  /api/v1/avocado/migrate-out
+GET  /api/v1/avocado/migrate-out/select
+POST /api/v1/avocado/migrate-out
+GET  /api/v1/mosaic/migrate-out
+GET  /api/v1/mosaic/migrate-out/select
+```
+
+```json
+// طلب التحويل إلى خط Yooz
+{
+  "dob": "1998-05-20",
+  "name": "Ali Ahmed",
+  "avatar": "avatar-5"
+}
+```
+
+</div>
+
+- **الغرض**:
+  1. **التحويل إلى Yooz**: ترقية ونقل الخط العادي إلى نظام وباقات Yooz الرقمية مع تسجيل الاسم وتاريخ الميلاد والأفاتار.
+  2. **الرجوع إلى الخط العادي (Migrate Out)**:
+     - `GET /api/v1/avocado/migrate-out`: استعلام شاشة التأكيد والتعليمات والشروط الخاصة بإلغاء باقة Yooz والرجوع لنظام الخطوط العادي.
+     - `GET /api/v1/avocado/migrate-out/select`: جلب فروع ومراكز الخدمة المعتمدة لإتمام التحويل وتثبيت الهوية.
+     - `POST /api/v1/avocado/migrate-out`: إرسال وتثبيت طلب الخروج والرجوع المباشر للخط العادي.
+  3. **خطوط موزايك (Mosaic)**: استعلام شاشات ومراكز الرجوع للخط العادي عبر `/api/v1/mosaic/migrate-out`.
 
 ---
 

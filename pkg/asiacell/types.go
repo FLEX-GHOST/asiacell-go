@@ -1515,6 +1515,53 @@ type YoozRewardResponse struct {
 	Data    *YoozRewardData `json:"data"`
 }
 
+type YoozMigrateLineRequest struct {
+	DOB    string `json:"dob"`
+	Name   string `json:"name"`
+	Avatar string `json:"avatar"`
+}
+
+type YoozMigrateOutHomeData struct {
+	VID           *int              `json:"vid,omitempty"`
+	Title         string            `json:"title"`
+	Image         string            `json:"image"`
+	Desc          string            `json:"desc"`
+	ActionButton  *PromotionButton  `json:"actionButton,omitempty"`
+	ActionButtons []PromotionButton `json:"actionButtons,omitempty"`
+}
+
+type YoozMigrateOutHomeResponse struct {
+	Success bool                    `json:"success"`
+	Message string                  `json:"message"`
+	Data    *YoozMigrateOutHomeData `json:"data"`
+}
+
+type YoozMigrateOutLocationItem struct {
+	ID    int    `json:"id"`
+	Title string `json:"title"`
+}
+
+type YoozMigrateOutLocationData struct {
+	Title        string                       `json:"title"`
+	Desc         string                       `json:"desc"`
+	Items        []YoozMigrateOutLocationItem `json:"items"`
+	ActionButton *PromotionButton             `json:"actionButton,omitempty"`
+}
+
+type YoozMigrateOutLocationResponse struct {
+	Success bool                        `json:"success"`
+	Message string                      `json:"message"`
+	Data    *YoozMigrateOutLocationData `json:"data"`
+}
+
+type YoozMigrateOutResponse struct {
+	Success    bool   `json:"success"`
+	Message    string `json:"message"`
+	NextAction string `json:"nextAction"`
+	Title      string `json:"title"`
+}
+
+
 // --- Multi-Step Online Payment & Recharge ---
 
 type RechargeNumberItem struct {

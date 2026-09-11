@@ -7,7 +7,7 @@
 **Production-grade, zero-dependency Go SDK for Asiacell Iraq APIs**
 
 [![Go Version](https://img.shields.io/badge/Go-1.26+-18181b?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
-[![Verified Endpoints](https://img.shields.io/badge/Endpoints-141%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
+[![Verified Endpoints](https://img.shields.io/badge/Endpoints-147%20Verified-E7242A?style=flat-square)](ENDPOINTS.md)
 [![Dependencies](https://img.shields.io/badge/Dependencies-Zero%20(Stdlib)-18181b?style=flat-square)](https://pkg.go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-18181b?style=flat-square)](LICENSE)
 
@@ -32,13 +32,13 @@ asiacell-go/
 │       ├── services.go          # باقات وخدمات آسياسيل والتحويلات
 │       ├── fanzone.go           # ألعاب ومسابقات دوري نجوم العراق FanZone
 │       ├── partners.go          # دليل الشركاء وتصنيفات المتاجر والخصومات
-│       ├── yooz.go              # منظومة خطوط Yooz / Avocado الشبابية
+│       ├── yooz.go              # منظومة خطوط Yooz / Avocado الشبابية والتحويل
 │       ├── recharge.go          # مسار الدفع والشحن الإلكتروني متعدد المراحل
 │       ├── addons_v3.go         # صمم باقتك (CYO)، الداشبورد v3، الاستبيانات، يد واحدة، وEpic
 │       ├── device_services.go   # رفع الصور، الإشعارات، البيومترك، الساعات، والدفع المحمي
 │       └── types.go             # هياكل البيانات ونماذج الاستجابة JSON
 ├── examples/                    # أمثلة عملية مستقلة لكل خدمة
-├── ENDPOINTS.md                 # التوثيق التقني لجميع نقاط النهاية الـ 141
+├── ENDPOINTS.md                 # التوثيق التقني لجميع نقاط النهاية الـ 147
 ├── README.md
 └── go.mod
 ```
@@ -47,7 +47,7 @@ asiacell-go/
 
 ## ميزات وقدرات المكتبة (Features)
 
-المكتبة تغطي 141 واجهة برمجية (Endpoints) رسمية تم فحصها والتحقق من سلامتها بنسبة 100%:
+المكتبة تغطي 147 واجهة برمجية (Endpoints) رسمية تم فحصها والتحقق من سلامتها بنسبة 100%:
 
 ### 1. المصادقة وإدارة الجلسات (Authentication & Sessions)
 - **طلب رمز التحقق (SMS OTP)**: `Login(ctx, phone)` لإرسال رمز الدخول مباشرة للهاتف.
@@ -144,12 +144,15 @@ asiacell-go/
 - **قائمة الشركاء والمحلات**: `GetPartnersByCategoryAndCity(ctx, categoryId, cityId)` مع العناوين ونسب الخصم والإحداثيات.
 - **تسجيل شريك جديد**: `RegisterPartner(ctx, req)`.
 
-### 13. منظومة خطوط يوز الشبابية (Yooz / Avocado)
+### 13. منظومة خطوط يوز الشبابية والتحويل (Yooz & Line Migration)
 - **لوحة تحكم يوز**: `GetYoozHome(ctx)` للرصيد والمتبقي من الميغابايت والصلاحية.
 - **شاشة باقات وعروض يوز**: `GetYoozBundlesScreen(ctx, groupId)` و `GetYoozBundles(ctx)`.
 - **خطط كلاسيك وأوميغا**: `GetYoozClassicPlans(ctx)` و `GetYoozOmegaPlans(ctx, voucher, msisdn)`.
 - **سقف استهلاك بيانات يوز**: `GetYoozDataCap(ctx)` و `SetYoozDataCap(ctx, limitMB)`.
 - **مكافآت خطوط يوز**: `GetYoozReward(ctx)`.
+- **تحويل الخط العادي إلى يوز**: `MigrateLineToYooz(ctx, req)` لنقل الخط لنظام Yooz بتسجيل الاسم وتاريخ الميلاد والأفاتار.
+- **الرجوع إلى الخط العادي (Migrate Out)**: `GetYoozMigrateOutHome(ctx)` لاستعلام التعليمات، و `GetYoozMigrateOutLocations(ctx)` لجلب مراكز الخدمة، و `SubmitYoozMigrateOut(ctx)` لإرسال طلب التحويل النهائي للخط العادي.
+- **تحويل خطوط موزايك**: `GetMosaicMigrateOutHome(ctx)` و `GetMosaicMigrateOutLocations(ctx)`.
 
 ### 14. مسار الشحن الإلكتروني والداشبورد v3 والشركات (Recharge, CYO, Surveys & Epic)
 - **مسار الدفع الإلكتروني متعدد المراحل**:

@@ -163,3 +163,120 @@ func (c *Client) GetYoozReward(ctx context.Context) (*YoozRewardData, error) {
 	}
 	return res.Data, nil
 }
+
+func (c *Client) MigrateLineToYooz(ctx context.Context, req YoozMigrateLineRequest) error {
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("encoding migrate line request: %w", err)
+	}
+
+	path := fmt.Sprintf("/api/v1/avocado/bundles/migrate-line?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("migrating line to yooz: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return ErrUnauthorized
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("migrating line to yooz failed with status %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func (c *Client) GetYoozMigrateOutHome(ctx context.Context) (*YoozMigrateOutHomeData, error) {
+	path := fmt.Sprintf("/api/v1/avocado/migrate-out?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting yooz migrate out home: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res YoozMigrateOutHomeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding yooz migrate out home: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *Client) GetYoozMigrateOutLocations(ctx context.Context) (*YoozMigrateOutLocationData, error) {
+	path := fmt.Sprintf("/api/v1/avocado/migrate-out/select?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting yooz migrate out locations: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res YoozMigrateOutLocationResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding yooz migrate out locations: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *Client) SubmitYoozMigrateOut(ctx context.Context) (*YoozMigrateOutResponse, error) {
+	path := fmt.Sprintf("/api/v1/avocado/migrate-out?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("submitting yooz migrate out: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res YoozMigrateOutResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding yooz migrate out response: %w", err)
+	}
+	return &res, nil
+}
+
+func (c *Client) GetMosaicMigrateOutHome(ctx context.Context) (*YoozMigrateOutHomeData, error) {
+	path := fmt.Sprintf("/api/v1/mosaic/migrate-out?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting mosaic migrate out home: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res YoozMigrateOutHomeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding mosaic migrate out home: %w", err)
+	}
+	return res.Data, nil
+}
+
+func (c *Client) GetMosaicMigrateOutLocations(ctx context.Context) (*YoozMigrateOutLocationData, error) {
+	path := fmt.Sprintf("/api/v1/mosaic/migrate-out/select?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting mosaic migrate out locations: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var res YoozMigrateOutLocationResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("decoding mosaic migrate out locations: %w", err)
+	}
+	return res.Data, nil
+}

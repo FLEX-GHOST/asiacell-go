@@ -831,3 +831,117 @@ func TestDeviceAndAdvancedAPIsFlow(t *testing.T) {
 	}
 }
 
+func TestLineMigrationToAndFromYooz(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/avocado/bundles/migrate-line":
+			if r.Method != http.MethodPost {
+				t.Errorf("expected POST, got %s", r.Method)
+			}
+			var req YoozMigrateLineRequest
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			if req.Name != "Ali Ahmed" || req.DOB != "1995-04-12" {
+				t.Errorf("unexpected body: %+v", req)
+			}
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "message": "Migration started"})
+
+		case "/api/v1/avocado/migrate-out":
+			if r.Method == http.MethodGet {
+				_ = json.NewEncoder(w).Encode(YoozMigrateOutHomeResponse{
+					Success: true,
+					Data: &YoozMigrateOutHomeData{
+						Title: "الرجوع إلى الخط العادي",
+						Desc:  "هل أنت متأكد من رغبتك بالتحويل؟",
+					},
+				})
+			} else if r.Method == http.MethodPost {
+				_ = json.NewEncoder(w).Encode(YoozMigrateOutResponse{
+					Success:    true,
+					Message:    "Request submitted successfully",
+					NextAction: "visit_branch",
+					Title:      "طلب التحويل قيد المعالجة",
+				})
+			}
+
+		case "/api/v1/avocado/migrate-out/select":
+			_ = json.NewEncoder(w).Encode(YoozMigrateOutLocationResponse{
+				Success: true,
+				Data: &YoozMigrateOutLocationData{
+					Title: "اختر الفرع الأقرب إليك",
+					Desc:  "يرجى مراجعة أحد الفروع لتأكيد الهوية",
+					Items: []YoozMigrateOutLocationItem{
+						{ID: 1, Title: "فرع المنصور - بغداد"},
+						{ID: 2, Title: "فرع الكرادة - بغداد"},
+					},
+				},
+			})
+
+		case "/api/v1/mosaic/migrate-out":
+			_ = json.NewEncoder(w).Encode(YoozMigrateOutHomeResponse{
+				Success: true,
+				Data: &YoozMigrateOutHomeData{
+					Title: "موزايك - الرجوع للخط العادي",
+					Desc:  "تعليمات التحويل من خط موزايك",
+				},
+			})
+
+		case "/api/v1/mosaic/migrate-out/select":
+			_ = json.NewEncoder(w).Encode(YoozMigrateOutLocationResponse{
+				Success: true,
+				Data: &YoozMigrateOutLocationData{
+					Title: "مراكز خدمة موزايك",
+					Items: []YoozMigrateOutLocationItem{
+						{ID: 10, Title: "مركز السليمانية"},
+					},
+				},
+			})
+
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	client, err := NewClient()
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+	client.baseURL = ts.URL
+	ctx := context.Background()
+
+	err = client.MigrateLineToYooz(ctx, YoozMigrateLineRequest{
+		DOB:    "1995-04-12",
+		Name:   "Ali Ahmed",
+		Avatar: "avatar-3",
+	})
+	if err != nil {
+		t.Fatalf("MigrateLineToYooz failed: %v", err)
+	}
+
+	home, err := client.GetYoozMigrateOutHome(ctx)
+	if err != nil || home.Title != "الرجوع إلى الخط العادي" {
+		t.Fatalf("GetYoozMigrateOutHome failed: %v", err)
+	}
+
+	locs, err := client.GetYoozMigrateOutLocations(ctx)
+	if err != nil || len(locs.Items) != 2 || locs.Items[0].Title != "فرع المنصور - بغداد" {
+		t.Fatalf("GetYoozMigrateOutLocations failed: %v", err)
+	}
+
+	subResp, err := client.SubmitYoozMigrateOut(ctx)
+	if err != nil || !subResp.Success || subResp.NextAction != "visit_branch" {
+		t.Fatalf("SubmitYoozMigrateOut failed: %v", err)
+	}
+
+	mHome, err := client.GetMosaicMigrateOutHome(ctx)
+	if err != nil || mHome.Title != "موزايك - الرجوع للخط العادي" {
+		t.Fatalf("GetMosaicMigrateOutHome failed: %v", err)
+	}
+	mLocs, err := client.GetMosaicMigrateOutLocations(ctx)
+	if err != nil || len(mLocs.Items) != 1 {
+		t.Fatalf("GetMosaicMigrateOutLocations failed: %v", err)
+	}
+}
+
