@@ -37,7 +37,7 @@
 | **13** | `GET` | `/api/v1/cdr/detail?type=btransfer` | `client.GetCDRTransferHistory(ctx, page, limit)` | جلب سجل كشف الحساب لتحويلات الرصيد الواردة والصادرة مع رقم المرسل والمبلغ والتاريخ |
 | **14** | `POST` | `/api/v1/cdr/send-otp` | `client.SendCDROTP(ctx)` | طلب رمز OTP لتفعيل خدمة كشف الحساب (CDR) على الرقم للجلسة |
 | **15** | `POST` | `/api/v1/cdr/confirm` | `client.ConfirmCDROTP(ctx, otp)` | تأكيد رمز OTP لتفعيل صلاحية الوصول لكشف الحساب وسجلات التحويل |
-| **16** | `—` | *(خوارزمية داخلية)* | `client.VerifyIncomingTransfer(ctx, phone, minAmt)` | **التحقق التلقائي الفوري من وصول تحويل رصيد من رقم مرسل ومطابقته آلياً** |
+| **16** | `GET` | `/api/v1/transaction/transfer` | `client.GetTransferHistory(ctx)` | سجل وتاريخ عمليات تحويل الرصيد السابقة على الخط (المحفظة) |
 | **17** | `POST` | `/api/v1/credit-transfer/start` | `client.StartCreditTransfer(ctx, to, amt)` | بدء تحويل رصيد من الشريحة لرقم آخر وتوليد معرف العملية PID |
 | **18** | `POST` | `/api/v1/credit-transfer/do-transfer` | `client.ConfirmCreditTransfer(ctx, pid, code)` | تأكيد تحويل الرصيد بإدخال رمز التحقق المرسل إلى الهاتف |
 | **19** | `POST` | `/api/v1/top-up` | `client.RechargeVoucher(ctx, to, code, type)` | شحن وتعبئة كارت آسياسيل عبر كود الكارت (13-14 رقماً) عادي أو إنترنت |
@@ -119,8 +119,32 @@ X-ODP-API-KEY: 1ccbc4c913bc4ce785a0a2de444aa0d6
 - `POST /api/v1/cdr/send-otp`: إرسال كود OTP برسالة SMS لتفعيل صلاحية الوصول للجلسة.
 - `POST /api/v1/cdr/confirm`: تأكيد كود الـ OTP.
 
-#### خوارزمية التحقق التلقائي (`VerifyIncomingTransfer`):
-- تقوم الدالة بالاستعلام المباشر من سجل الـ CDR عن آخر 30 عملية، وتطابق رقم هاتف المرسل (بمقارنة آخر 9 أرقام لتجاوز اختلافات البادئات `077` أو `96477`)، وتتأكد أن الحوالة واردة (إيجابية وليست سالبة) وأن القيمة مساوية أو أكبر من المطلوب، لمنع الاحتيال وضمان الإيداع التلقائي فورياً بدون تدخل يدوي للأدمن.
+#### سجل تحويلات المحفظة السريعة (Transfer History):
+- `GET /api/v1/transaction/transfer`: استعلام سجل عمليات تحويل الرصيد السابقة الموثقة في محفظة الحساب (My Pocket) من خوادم آسياسيل مباشرة مستخرجة من كود تطبيق آسياسيل الرسمي (`cw7.java`).
+
+<div dir="ltr" align="left">
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "success": true,
+  "data": [
+    {
+      "type": "TRANSFER",
+      "msisdn": "07701234567",
+      "receiverMsisdn": "07744298878",
+      "createdAt": 1726068223000,
+      "amount": 1000.0
+    }
+  ]
+}
+```
+
+</div>
+
+#### خوارزمية التحقق التلقائي المدمجة (`VerifyIncomingTransfer`):
+- تقوم دالة الـ SDK بالاستعلام المزدوج الذكي: فحص سجل الـ CDR السحابي (`/api/v1/cdr/detail?type=btransfer`) مع الرجوع لسجل المحفظة (`/api/v1/transaction/transfer`)، وتطابق رقم هاتف المرسل (بمقارنة آخر 9 أرقام لتجاوز اختلافات البادئات `077` أو `96477`)، وتتأكد أن الحوالة واردة (إيجابية وليست سالبة) وأن القيمة مساوية أو أكبر من المطلوب، لمنع الاحتيال وضمان الإيداع التلقائي فورياً بدون تدخل يدوي للأدمن.
 
 ---
 
