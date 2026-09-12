@@ -27,22 +27,27 @@ const (
 type Option func(*Client)
 
 type Client struct {
-	httpClient     *http.Client
-	baseURL        string
-	deviceID       string
-	language       string
-	userAgent      string
-	accessToken    string
-	refreshToken   string
-	handshakeToken string
-	userID            string
-	username          string
-	masterWallet      string
-	lastRefresh       time.Time
-	onTokenUpdate     func(*SessionData)
+	httpClient                *http.Client
+	baseURL                   string
+	deviceID                  string
+	language                  string
+	userAgent                 string
+	accessToken               string
+	refreshToken              string
+	handshakeToken            string
+	userID                    string
+	username                  string
+	phone                     string
+	biometricSecret           string
+	masterWallet              string
+	lastCDRPID                string
+	lastRefresh               time.Time
+	onTokenUpdate             func(*SessionData)
+	onCDRExpired              func()
 	recordedTransfers         []TransactionRecord
 	recordedIncomingTransfers []TransactionRecord
 	recordedRecharges         []TransactionRecord
+	storage                   SessionStorage
 	mu                        sync.RWMutex
 }
 
@@ -87,6 +92,41 @@ func WithMasterWallet(wallet string) Option {
 func WithOnTokenUpdate(fn func(*SessionData)) Option {
 	return func(c *Client) {
 		c.onTokenUpdate = fn
+	}
+}
+
+func WithBiometricSecret(secret string) Option {
+	return func(c *Client) {
+		c.biometricSecret = secret
+	}
+}
+
+func WithPhone(phone string) Option {
+	return func(c *Client) {
+		c.phone = phone
+		if c.username == "" {
+			c.username = phone
+		}
+	}
+}
+
+func WithSessionStorage(storage SessionStorage) Option {
+	return func(c *Client) {
+		c.storage = storage
+	}
+}
+
+func WithOnCDRExpired(fn func()) Option {
+	return func(c *Client) {
+		c.onCDRExpired = fn
+	}
+}
+
+func WithHTTPClient(httpClient *http.Client) Option {
+	return func(c *Client) {
+		if httpClient != nil {
+			c.httpClient = httpClient
+		}
 	}
 }
 
@@ -154,19 +194,25 @@ func (c *Client) SetTokens(access, refresh, handshake, userID, username string) 
 	c.handshakeToken = handshake
 	c.userID = userID
 	c.username = username
+	if c.phone == "" && username != "" {
+		c.phone = username
+	}
 	c.lastRefresh = time.Now()
 	cb := c.onTokenUpdate
+	storage := c.storage
 	var data *SessionData
-	if cb != nil && access != "" {
+	if access != "" {
 		data = &SessionData{
-			AccessToken:    c.accessToken,
-			RefreshToken:   c.refreshToken,
-			HandshakeToken: c.handshakeToken,
-			UserID:         FlexString(c.userID),
-			Username:       c.username,
-			DeviceID:       c.deviceID,
-			Language:       c.language,
-			LastRefresh:    c.lastRefresh,
+			AccessToken:     c.accessToken,
+			RefreshToken:    c.refreshToken,
+			HandshakeToken:  c.handshakeToken,
+			UserID:          FlexString(c.userID),
+			Username:        c.username,
+			Phone:           c.phone,
+			DeviceID:        c.deviceID,
+			BiometricSecret: c.biometricSecret,
+			Language:        c.language,
+			LastRefresh:     c.lastRefresh,
 		}
 	}
 	c.mu.Unlock()
@@ -174,6 +220,57 @@ func (c *Client) SetTokens(access, refresh, handshake, userID, username string) 
 	if cb != nil && data != nil {
 		cb(data)
 	}
+	if storage != nil && data != nil {
+		_ = storage.SaveSession(context.Background(), data)
+	}
+}
+
+func (c *Client) SetBiometricSecret(secret string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.biometricSecret = secret
+}
+
+func (c *Client) BiometricSecret() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.biometricSecret
+}
+
+func (c *Client) SetPhone(phone string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.phone = phone
+	if c.username == "" {
+		c.username = phone
+	}
+}
+
+func (c *Client) Phone() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.phone != "" {
+		return c.phone
+	}
+	return c.username
+}
+
+func (c *Client) SetOnCDRExpired(fn func()) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.onCDRExpired = fn
+}
+
+func (c *Client) LastCDRPID() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.lastCDRPID
+}
+
+func (c *Client) SetLastCDRPID(pid string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.lastCDRPID = pid
 }
 
 func (c *Client) GetTokens() (access, refresh, handshake, userID, username string) {
@@ -217,6 +314,7 @@ func (c *Client) applyHeaders(req *http.Request) {
 	req.Header.Set("Accept", "application/json, text/plain, */*")
 	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("DeviceId", c.deviceID)
+	req.Header.Set("x-device-id", c.deviceID)
 	req.Header.Set("X-ODP-API-KEY", defaultAPIKey)
 	req.Header.Set("X-OS-Version", "15")
 	req.Header.Set("X-ODP-APP-VERSION", defaultAppVer)
@@ -234,13 +332,19 @@ func (c *Client) applyHeaders(req *http.Request) {
 	}
 }
 
+func (c *Client) DoRequest(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	return c.doRequest(ctx, method, path, body)
+}
+
 func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
 	hosts := []string{c.baseURL}
-	altHost := "https://odpapp.asiacell.com"
-	if c.baseURL == "https://odpapp.asiacell.com" {
-		altHost = "https://app.asiacell.com"
+	if c.baseURL == defaultBaseURL || c.baseURL == "https://odpapp.asiacell.com" {
+		altHost := "https://odpapp.asiacell.com"
+		if c.baseURL == "https://odpapp.asiacell.com" {
+			altHost = defaultBaseURL
+		}
+		hosts = append(hosts, altHost)
 	}
-	hosts = append(hosts, altHost)
 
 	var bodyBytes []byte
 	if body != nil {
@@ -276,25 +380,33 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 			continue
 		}
 
-		if resp.StatusCode == http.StatusUnauthorized && path != "/api/v1/validate" && path != "/api/v1/login" && path != "/api/v1/smsvalidation" {
-			c.mu.RLock()
-			hasRefresh := c.refreshToken != ""
-			c.mu.RUnlock()
+		isAuthError := resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden || resp.StatusCode == 493
+		isAuthPath := strings.HasPrefix(path, "/api/v1/validate") || strings.HasPrefix(path, "/api/v1/login") || strings.HasPrefix(path, "/api/v1/smsvalidation") || strings.HasPrefix(path, "/api/v1/biometrics/do-login") || strings.HasPrefix(path, "/api/v1/biometrics/register")
 
-			if hasRefresh && bodyBytes == nil {
-				_, _ = io.Copy(io.Discard, resp.Body)
-				_ = resp.Body.Close()
-				if refErr := c.RefreshToken(ctx); refErr == nil {
-					retryReq, retryErr := http.NewRequestWithContext(ctx, method, fullURL, nil)
-					if retryErr == nil {
-						c.applyHeaders(retryReq)
-						resp, err = c.httpClient.Do(retryReq)
-						if err != nil {
-							lastErr = err
-							continue
-						}
+		if isAuthError && !isAuthPath {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+
+			if refErr := c.RefreshSession(ctx); refErr == nil {
+				var retryRdr io.Reader
+				if bodyBytes != nil {
+					retryRdr = bytes.NewReader(bodyBytes)
+				}
+				retryReq, retryErr := http.NewRequestWithContext(ctx, method, fullURL, retryRdr)
+				if retryErr == nil {
+					c.applyHeaders(retryReq)
+					if bodyBytes != nil {
+						retryReq.Header.Set("Content-Type", "application/json")
+					}
+					resp, err = c.httpClient.Do(retryReq)
+					if err != nil {
+						lastErr = err
+						continue
 					}
 				}
+			} else {
+				lastErr = refErr
+				continue
 			}
 		}
 

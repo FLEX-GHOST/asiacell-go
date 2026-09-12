@@ -5,3 +5,4 @@ session.json
 sessions.json
 *.session.json
 data/
+skills-lock.json

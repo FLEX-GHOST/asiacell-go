@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/FLEX-GHOST/asiacell-go/pkg/asiacell"
@@ -29,7 +30,7 @@ func main() {
 	}
 	client.SetMasterWallet(wallet)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	fmt.Println("===============================================================")
@@ -41,8 +42,35 @@ func main() {
 	fmt.Println("1. Fetching live CDR transfer history from Asiacell ledger...")
 	records, err := client.GetCDRTransferHistory(ctx, 1, 20)
 	if err != nil {
-		fmt.Printf("Warning: Failed to fetch CDR directly (%v)\n", err)
-		fmt.Println("If CDR requires initial OTP activation, use client.SendCDROTP() and client.ConfirmCDROTP().")
+		fmt.Printf("Notice: CDR requires initial OTP activation or session renewal (%v)\n", err)
+		fmt.Print("Send SMS OTP to activate CDR ledger? (y/n): ")
+		var answer string
+		fmt.Scanln(&answer)
+		if strings.ToLower(strings.TrimSpace(answer)) == "y" {
+			pid, sendErr := client.SendCDROTP(ctx)
+			if sendErr != nil {
+				fmt.Printf("SendCDROTP failed: %v\n", sendErr)
+				return
+			}
+			fmt.Printf("OTP sent to master phone! (Extracted PID: %s)\n", pid)
+			fmt.Print("Enter 6-digit OTP code received: ")
+			var code string
+			fmt.Scanln(&code)
+			code = strings.TrimSpace(code)
+
+			// Confirm using GenericSMSConfirmationDTO {"PID": pid, "passcode": code}
+			// Never calls /api/v1/smsvalidation
+			if confErr := client.ConfirmCDROTP(ctx, pid, code); confErr != nil {
+				fmt.Printf("ConfirmCDROTP failed: %v\n", confErr)
+				return
+			}
+			fmt.Println("✓ CDR Ledger activated! Re-fetching records...")
+			records, err = client.GetCDRTransferHistory(ctx, 1, 20)
+		}
+	}
+
+	if err != nil {
+		fmt.Printf("Could not fetch CDR records: %v\n", err)
 	} else if len(records) > 0 {
 		fmt.Printf("Found %d CDR records in ledger:\n", len(records))
 		for idx, rec := range records {

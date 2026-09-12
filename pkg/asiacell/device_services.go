@@ -143,33 +143,25 @@ func (c *Client) RegisterBiometrics(ctx context.Context) error {
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return ErrUnauthorized
 	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err == nil && len(bodyBytes) > 0 {
+		var regResp BiometricRegisterResponse
+		if jsonErr := json.Unmarshal(bodyBytes, &regResp); jsonErr == nil {
+			sec := regResp.Secret
+			if sec == "" {
+				sec = regResp.Data.Secret
+			}
+			if sec != "" {
+				c.SetBiometricSecret(sec)
+			}
+		}
+	}
 	return nil
 }
 
 func (c *Client) BiometricLogin(ctx context.Context, biometricsKey string) (*LoginResponse, error) {
-	payload, err := json.Marshal(map[string]string{
-		"key": biometricsKey,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("encoding biometric login payload: %w", err)
-	}
-
-	path := fmt.Sprintf("/api/v1/biometrics/do-login?lang=%s", c.language)
-	resp, err := c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(payload))
-	if err != nil {
-		return nil, fmt.Errorf("requesting biometric login: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		return nil, ErrUnauthorized
-	}
-
-	var res LoginResponse
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
-		return nil, fmt.Errorf("decoding biometric login response: %w", err)
-	}
-	return &res, nil
+	return c.LoginBiometric(ctx, biometricsKey)
 }
 
 func (c *Client) GetWatchDashboard(ctx context.Context) (*WatchDashboardData, error) {

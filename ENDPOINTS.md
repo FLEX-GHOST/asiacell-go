@@ -25,10 +25,10 @@
 
 | # | طريقة HTTP | مسار النقطة (Endpoint Path) | دالة Go SDK | الوصف التفصيلي |
 | :---: | :---: | :--- | :--- | :--- |
-| **01** | `POST` | `/api/v1/auth/phone` | `client.Login(ctx, phone)` | إرسال رمز التحقق OTP المكون من 6 أرقام برسالة SMS لتسجيل الدخول |
-| **02** | `POST` | `/api/v1/auth/login-passcode` | `client.VerifySMS(ctx, pid, code)` | التحقق من كود الـ SMS واستبداله بتوكنات الجلسة (Access & Refresh) |
-| **03** | `POST` | `/api/v1/auth/refresh-token` | `client.RefreshToken(ctx)` | تجديد توكن الوصول المنتهي تلقائياً في الخلفية بدون طلب كود مجدداً |
-| **04** | `GET` | `/api/v1/auth/captcha` | `client.SolveCaptchaOCR(data)` | جلب صورة اختبار الكابتشا في حال فرضها لمنع الطلبات المتكررة |
+| **01** | `POST` | `/api/v1/login` (`/api/v1/auth/phone`) | `client.Login(ctx, phone)` | إرسال رمز التحقق OTP المكون من 6 أرقام برسالة SMS وتوليد معرّف العملية PID لتسجيل الدخول |
+| **02** | `POST` | `/api/v1/smsvalidation` (`/api/v1/auth/login-passcode`) | `client.VerifySMS(ctx, pid, code)` | التحقق من كود الـ SMS واستبداله بتوكنات الجلسة وتفعيل التسجيل البيومتري للجهاز تلقائياً |
+| **03** | `POST` | `/api/v1/validate` (`/api/v1/auth/refresh-token`) | `client.RefreshToken(ctx)` / `client.RefreshSession(ctx)` | تجديد توكن الوصول المنتهي تلقائياً واسترجاع السر البيومتري المشفر في الخلفية بدون طلب كود مجدداً |
+| **04** | `GET` | `/api/v1/captcha` (`/api/v1/auth/captcha`) | `client.SolveCaptchaOCR(data)` / `client.GetCaptcha(ctx)` | جلب صورة اختبار الكابتشا وحلها آلياً في حال فرضها لمنع الطلبات المتكررة |
 | **05** | `GET` | `/api/v1/profile` | `client.GetProfile(ctx)` | استعلام رصيد الحساب الحالي، مدة الصلاحية، المتبقي من الإنترنت والمكالمات والرسائل |
 | **06** | `GET` | `/api/v1/profile/view2` | `client.GetProfileDetails(ctx)` | تفاصيل الملف الشخصي للمشترك: الاسم الكامل، البريد، تاريخ الميلاد، ورابط الصورة |
 | **07** | `GET` | `/api/v1/profile-img` | `client.GetProfileDetails(ctx)` | دفق صورة الحساب الرمزية للمستخدم (Avatar) |
@@ -38,8 +38,8 @@
 | **11** | `GET` | `/api/v1/addon/summary/` | `client.GetAddonSummary(ctx, tagID)` | تفاصيل الباقات والأسعار لقسم محدد من الباقات |
 | **12** | `POST` | `/api/v1/addon/subscribe` | `client.SubscribeAddon(ctx, addonID)` | تفعيل واشتراك فوري في الباقة مع خصم قيمتها من الرصيد مباشرة |
 | **13** | `GET` | `/api/v1/cdr/detail?type=btransfer` | `client.GetCDRTransferHistory(ctx, page, limit)` | جلب سجل كشف الحساب لتحويلات الرصيد الواردة والصادرة مع رقم المرسل والمبلغ والتاريخ |
-| **14** | `POST` | `/api/v1/cdr/send-otp` | `client.SendCDROTP(ctx)` | طلب رمز OTP لتفعيل خدمة كشف الحساب (CDR) على الرقم للجلسة |
-| **15** | `POST` | `/api/v1/cdr/confirm` | `client.ConfirmCDROTP(ctx, otp)` | تأكيد رمز OTP لتفعيل صلاحية الوصول لكشف الحساب وسجلات التحويل |
+| **14** | `POST` | `/api/v1/cdr/send-otp` | `client.SendCDROTP(ctx)` | طلب رمز OTP واستخراج معرّف العملية PID من رابط nextUrl لتفعيل خدمة كشف الحساب للجلسة |
+| **15** | `POST` | `/api/v1/cdr/confirm` | `client.ConfirmCDROTP(ctx, pid, code)` | تأكيد رمز OTP بواسطة GenericSMSConfirmationDTO لتفعيل كشف الحساب (حظر تام لـ smsvalidation) |
 | **16** | `GET` | `/api/v1/transaction/transfer` | `client.GetTransferHistory(ctx)` | سجل وتاريخ عمليات تحويل الرصيد السابقة على الخط (المحفظة) |
 | **17** | `POST` | `/api/v1/credit-transfer/start` | `client.StartCreditTransfer(ctx, to, amt)` | بدء تحويل رصيد من الشريحة لرقم آخر وتوليد معرف العملية PID |
 | **18** | `POST` | `/api/v1/credit-transfer/do-transfer` | `client.ConfirmCreditTransfer(ctx, pid, code)` | تأكيد تحويل الرصيد بإدخال رمز التحقق المرسل إلى الهاتف |
@@ -152,8 +152,8 @@
 | **125** | `POST` | `/api/v2/logo/upload` | `client.UploadPartnerLogo(ctx, filename, r)` | رفع شعار المتجر للشركاء التجاريين كملف مالتيبارت |
 | **126** | `POST` | `/api/v1/notifications/register` | `client.RegisterNotificationToken(ctx, token, os)` | تسجيل توكن جهاز المشترك (FCM) لاستقبال الإشعارات السحابية |
 | **127** | `POST` | `/api/v1/notifications/log` | `client.LogNotificationRead(ctx, notifId)` | تسجيل قراءة وتفاعل المشترك مع إشعار محدد |
-| **128** | `POST` | `/api/v1/biometrics/register` | `client.RegisterBiometrics(ctx)` | تسجيل بصمة الإصبع/الوجه بيومترياً على خوادم آسياسيل |
-| **129** | `POST` | `/api/v1/biometrics/do-login` | `client.BiometricLogin(ctx, key)` | تسجيل الدخول السريع عبر المصادقة البيومترية بدون طلب OTP |
+| **128** | `POST` | `/api/v1/biometrics/register` | `client.RegisterBiometrics(ctx)` | تسجيل وتفعيل المصادقة البيومترية للجهاز واستخراج السر المشفر (Secret) لتأمين الدخول الدائم |
+| **129** | `POST` | `/api/v1/biometrics/do-login` | `client.LoginBiometric(ctx, secret)` / `client.BiometricLogin(ctx, key)` | تسجيل الدخول الصامت والسريع عبر المفتاح والسر البيومتري بدون الحاجة لطلب OTP |
 | **130** | `GET` | `/api/v1/watch/home` | `client.GetWatchDashboard(ctx)` | لوحة تحكم الساعات الذكية (Apple Watch و Wear OS) |
 | **131** | `GET` | `/protected/v1/payments/{txId}/status` | `client.GetProtectedPaymentStatus(ctx, txId)` | فحص حالة عملية الدفع المحمية المشفرة |
 | **132** | `POST` | `/protected/v1/payments/{txId}/cancel` | `client.CancelProtectedPayment(ctx, txId)` | إلغاء عملية الدفع المحمية المعلقة |
@@ -172,6 +172,18 @@
 | **145** | `POST` | `/api/v1/avocado/migrate-out` | `client.SubmitYoozMigrateOut(ctx)` | تأكيد وإرسال طلب الخروج والتحويل النهائي من يوز للخط العادي |
 | **146** | `GET` | `/api/v1/mosaic/migrate-out` | `client.GetMosaicMigrateOutHome(ctx)` | استعلام شاشة وتعليمات الرجوع من خطوط موزايك (Mosaic) إلى الخط العادي |
 | **147** | `GET` | `/api/v1/mosaic/migrate-out/select` | `client.GetMosaicMigrateOutLocations(ctx)` | استعلام فروع ومراكز الخدمة المعتمدة لتحويل خطوط موزايك |
+
+<br />
+
+### دوال ومحركات إدارة الجلسة في Go SDK (Session Persistence & Keep-Alive Engine)
+
+| # | دالة / واجهة Go SDK | نمط الاستخدام | الوصف الفني والمعماري |
+| :---: | :--- | :--- | :--- |
+| **S1** | `client.RefreshSession(ctx)` | تجديد ذكي ثلاثي الطبقات | تجديد متسلسل يبدأ بالتوكن (`/api/v1/validate`) ثم ينتقل تلقائياً لتسجيل الدخول البيومتري الصامت (`/api/v1/biometrics/do-login`) عند انتهاء الجلسة |
+| **S2** | `client.StartKeepAlive(ctx, interval)` | نبض دوري خلفي (Heartbeat) | تشغيل مؤقت خلفي (Goroutine Ticker) كل 15 دقيقة لإبقاء الجلسة نشطة ومراقبة كشف الحساب وإطلاق `OnCDRExpired` |
+| **S3** | `asiacell.NewFileSessionStorage(path)` | تخزين ذري دائم للجلسة | حفظ ذري (Atomic Write عبر ملف مؤقت) لبيانات الجلسة (Tokens, DeviceID, Phone, BiometricSecret) لاسترجاعها عند الإقلاع |
+| **S4** | `asiacell.NewMemorySessionStorage()` | تخزين مؤقت بالذاكرة | تخزين آمن لبيانات الجلسة في الذاكرة (Thread-safe) للأنظمة والحاويات عديمة الحالة (Stateless) |
+| **S5** | `client.ExportSession()` / `ImportSession()` | تصدير واستيراد الجلسة | تصدير واستيراد كائن الجلسة المشفر كـ JSON وتمريره بين السيرفرات أو البوتات المختلفة بسلاسة |
 
 ---
 
@@ -226,9 +238,50 @@ X-ODP-API-KEY: 1ccbc4c913bc4ce785a0a2de444aa0d6
 
 </div>
 
-#### تفعيل كشف الحساب (CDR Activation):
-- `POST /api/v1/cdr/send-otp`: إرسال كود OTP برسالة SMS لتفعيل صلاحية الوصول للجلسة.
-- `POST /api/v1/cdr/confirm`: تأكيد كود الـ OTP.
+#### تفعيل كشف الحساب والتحقق الثنائي (CDR 2FA Activation):
+وفقاً للهندسة العكسية الدقيقة لتطبيق آسياسيل الرسمي (v5.1.0)، تتطلب عملية تفعيل كشف الحساب خطوتين متتاليتين بحزم:
+
+1. **إرسال رمز التحقق واستخراج معرّف العملية (Send OTP & Extract PID)**:
+   <div dir="ltr" align="left">
+
+   ```http
+   POST /api/v1/cdr/send-otp?lang=ar
+   ```
+
+   ```json
+   // استجابة الخادم الرسمية:
+   {
+     "code": 200,
+     "message": "success",
+     "success": true,
+     "nextUrl": "/api/v1/cdr/confirm?PID=82d7c541-16ef-46be-91c6-8fb50b5557ef"
+   }
+   ```
+
+   </div>
+
+   تقوم دالة `client.SendCDROTP(ctx)` بإرسال الطلب، وتحليل حقل `nextUrl` لاستخراج معرّف العملية `PID` وتخزينه تلقائياً في كائن العميل لتأمين إتمام العملية.
+
+2. **تأكيد الرمز عبر بنية GenericSMSConfirmationDTO الرسمية**:
+   <div dir="ltr" align="left">
+
+   ```http
+   POST /api/v1/cdr/confirm?lang=ar
+   ```
+
+   ```json
+   {
+     "PID": "82d7c541-16ef-46be-91c6-8fb50b5557ef",
+     "passcode": "123456"
+   }
+   ```
+
+   </div>
+
+   تقوم دالة `client.ConfirmCDROTP(ctx, pid, passcode)` (أو `client.ConfirmCDROTP(ctx, passcode)` التي تستخدم الـ PID المحفوظ مسبقاً) بتمرير بنية `GenericSMSConfirmationDTO` المعتمدة رسمياً من البوابة السحابية.
+
+   > [!CAUTION]
+   > **قاعدة هندسية حرجة**: يُحظر تماماً استدعاء مسار `/api/v1/smsvalidation` لتأكيد كود كشف الحساب (CDR). مسار `smsvalidation` مخصص فقط لعملية تسجيل الدخول الأولى، واستدعاؤه مع كود كشف الحساب يؤدي فوراً إلى احتراق الرمز (OTP Burn) وإبطال صلاحية جلسة المستخدم بالكامل.
 
 #### سجل تحويلات المحفظة السريعة (Transfer History):
 - `GET /api/v1/transaction/transfer`: استعلام سجل عمليات تحويل الرصيد السابقة الموثقة في محفظة الحساب (My Pocket) من خوادم آسياسيل مباشرة مستخرجة من كود تطبيق آسياسيل الرسمي (`cw7.java`).
@@ -398,19 +451,86 @@ GET /api/v2/e-voucher/packages?recharge-type=1
 
 ---
 
-### 2.9 تسجيل الدخول وإدارة الجلسات (Authentication)
+### 2.9 معمارية تسجيل الدخول والجلسة الخالدة (Authentication & Immortal Session Architecture)
 
+تعتمد حزمة Go SDK نظام مصادقة ثلاثي الطبقات متقدم (3-Layer Immortal Authentication) مستخرج ومطابق بنسبة 100% لسلوك تطبيق آسياسيل الرسمي (v5.1.0)، مما يضمن استمرارية عمل البوتات والخدمات السحابية لأشهر متواصلة دون انقطاع ودون الحاجة لإعادة طلب رمز SMS من المشترك.
+
+#### 1. مسارات دورة حياة المصادقة الرسمية:
 <div dir="ltr" align="left">
 
 ```http
-POST /api/v1/auth/phone
-POST /api/v1/auth/login-passcode
-POST /api/v1/auth/refresh-token
+POST /api/v1/login
+POST /api/v1/smsvalidation
+POST /api/v1/validate
+POST /api/v1/biometrics/register
+POST /api/v1/biometrics/do-login
 ```
 
 </div>
 
-- **الغرض**: تسجيل الدخول برقم الهاتف عبر رمز التحقق SMS واستخراج وتجديد التوكنات تلقائياً.
+---
+
+#### 2. تدفق تسجيل الدخول الأولي وتأسيس البصمة (Initial Login & Bootstrapping):
+1. **طلب رمز SMS**: استدعاء `client.Login(ctx, phone)` الذي يخاطب `POST /api/v1/login` ويستخرج معرّف `PID` من حقل `nextUrl`.
+2. **التحقق من الكود وتوليد الجلسة**: استدعاء `client.VerifySMS(ctx, pid, code)` الذي يخاطب `POST /api/v1/smsvalidation` لإرجاع توكنات الجلسة (`access_token`, `refresh_token`, `handshake_token`, `secret`).
+3. **تفعيل البصمة التلقائي**: تقوم دالة `VerifySMS` فور نجاحها باستدعاء `POST /api/v1/biometrics/register` لتسجيل الجهاز على خوادم آسياسيل واستخراج المفتاح السري المشفر `BiometricSecret` وتخزينه في كائن الجلسة.
+
+---
+
+#### 3. معمارية الجلسة الخالدة ثلاثية الطبقات (3-Layer Fallback Architecture):
+تعمل دالة الطلبات المركزية `doRequest` في الـ SDK بمحرك إعادة محاولة ذاتي وشفاف عند استقبال أي خطأ مصادقة (`401 Unauthorized` أو `403 Forbidden` أو `493 Session Expired`):
+
+```
++-------------------------------------------------------------+
+|               الطبقة 1: توكن الوصول الفعال                  |
+|       Authorization: Bearer <access_token>                  |
++-------------------------------------------------------------+
+                              |
+                     فشل (401 / 403 / 493)
+                              v
++-------------------------------------------------------------+
+|               الطبقة 2: تجديد التوكن الصامت                 |
+|               POST /api/v1/validate                         |
+|        Payload: {"refreshToken": "Bearer <refresh_token>"}  |
+|   يعيد توكنات وصول وتجديد جديدة + مفتاح Secret محدث         |
++-------------------------------------------------------------+
+                              |
+                    فشل (انتهاء صلاحية التجديد)
+                              v
++-------------------------------------------------------------+
+|        الطبقة 3: تسجيل الدخول البيومتري الصامت التام        |
+|             POST /api/v1/biometrics/do-login                |
+|      Payload: {"msisdn": phone, "secret": biometricSecret}  |
+|  يعيد توليد جلسة كاملة فوراً بدون SMS وبدون تدخل بشري       |
++-------------------------------------------------------------+
+```
+
+---
+
+#### 4. معرّف الجهاز الثابت الحصين (Persistent Immutable DeviceID):
+- يتم توليد معرّف جهاز عشوائي بصيغة **UUID v4** مرة واحدة فقط ويُحفظ دائماً مع بيانات الجلسة (`SessionData.DeviceID`).
+- يُحظر تماماً تدوير أو إعادة توليد المعرّف عشوائياً عند كل طلب أو إعادة تشغيل، لتجنب قيام خوادم آسياسيل بحظر الخط أو إبطال الجلسة.
+- يُرسل المعرّف إلزامياً في جميع الطلبات عبر ترويستين متطابقتين:
+  - `DeviceId: <UUID-v4>`
+  - `x-device-id: <UUID-v4>`
+
+---
+
+#### 5. محرك النبض الدوري الخلفي (Keep-Alive Heartbeat Daemon):
+تشغيل حارس الجلسة في الخلفية عبر استدعاء:
+```go
+client.StartKeepAlive(ctx, 15*time.Minute)
+```
+- يرسل نبضات دورية منتظمة (Heartbeat Pulses) كل 15 دقيقة لفحص حالة الملف الشخصي (`GET /api/v1/profile`) وسجل كشف الحساب (`GET /api/v1/cdr/detail?type=btransfer&page=1&limit=1`).
+- يضمن منع خمول الجلسة على السيرفر (Keep Session Warm).
+- يراقب صلاحية كشف الحساب، وعند انتهائها يقوم بإطلاق هوك `OnCDRExpired()` فوراً لإشعار النظام أو إرسال تنبيه لإعادة تفعيل التحقق الثنائي (2FA).
+
+---
+
+#### 6. التخزين الذري الدائم للجلسة (Atomic Session Persistence):
+توفر المكتبة واجهة `SessionStorage` لحفظ واسترجاع حالة الجلسة تلقائياً عند أي عملية تجديد أو تغيير:
+- `FileSessionStorage`: حفظ مشفر وذري (Atomic Write عبر كتابة ملف مؤقت ثم استبداله `os.Rename`) لضمان عدم تلف ملف الجلسة عند انقطاع التيار أو إيقاف السيرفر المفاجئ.
+- `MemorySessionStorage`: تخزين خفيف وآمن تزامنياً (Thread-safe) للأنظمة والحاويات عديمة الحالة (Stateless).
 
 ---
 
@@ -470,3 +590,7 @@ Authorization: Bearer <JWT_ACCESS_TOKEN>
 ```
 
 </div>
+
+> [!IMPORTANT]
+> **تطابق ترويسات معرّف الجهاز (DeviceID Dual-Header Invariant)**:
+> يجب تمرير معرّف الجهاز الثابت (UUID v4) في الترويستين معاً: `DeviceId` بالحرف الكبير و `x-device-id` بالأحرف الصغيرة مع تطابق تام في القيمة وعدم تغييرها طوال دورة حياة الحساب لضمان عدم سقوط الجلسة.

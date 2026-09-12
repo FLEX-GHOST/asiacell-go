@@ -17,6 +17,8 @@ This directory contains clean, production-grade, standalone examples demonstrati
 | **`07_shops_and_governorates`**| Iraqi governorates/cities coverage, certified branches, coordinates, and real-time open status. | `go run examples/07_shops_and_governorates/main.go` |
 | **`08_spin_wheel_and_rewards`**| Checking and playing the daily spin wheel, Shukran emergency loans, roaming, promotions. | `go run examples/08_spin_wheel_and_rewards/main.go` |
 | **`09_cdr_incoming_transfer_verification`**| Automated incoming credit transfer verification via CDR ledger without admin intervention. | `go run examples/09_cdr_incoming_transfer_verification/main.go` |
+| **`10_advanced_features`** | Vanity VIP numbers, support tickets, compensation check, and digital gift cards. | `go run examples/10_advanced_features/main.go` |
+| **`11_immortal_session_and_keepalive`** | 3-Layer immortal authentication, biometric silent login, and background keep-alive daemon. | `go run examples/11_immortal_session_and_keepalive/main.go` |
 | **`interactive_cli`** | An all-in-one terminal CLI application with an interactive text menu for all features. | `go run examples/interactive_cli/main.go` |
 
 ---
@@ -30,18 +32,25 @@ go run examples/interactive_cli/main.go
 ```
 
 ### 2. Login & Session Setup
-To log in with your phone and save a persistent `session.json` file:
+To log in with your phone, register biometrics, and save a persistent `session.json` file:
 ```bash
 go run examples/01_auth_and_session/main.go
 ```
 
-### 3. Check Account Balance & Bundles
+### 3. Immortal Session Daemon & Keep-Alive
+To run the background daemon that pulses profile and warms the CDR ledger:
+```bash
+go run examples/11_immortal_session_and_keepalive/main.go
+```
+
+### 4. Check Account Balance & Bundles
 ```bash
 go run examples/02_account_and_profile/main.go
 ```
 
-### 4. Automated CDR Transfer Verification (Payment Gateway)
+### 5. Automated CDR Transfer Verification (Payment Gateway)
 To verify incoming customer payments against the official Asiacell CDR ledger:
 ```bash
 go run examples/09_cdr_incoming_transfer_verification/main.go
 ```
+

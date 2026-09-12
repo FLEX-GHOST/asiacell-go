@@ -2,6 +2,7 @@ package asiacell
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"strings"
 	"time"
@@ -71,6 +72,21 @@ type SMSValidationResponse struct {
 	UserType       FlexString `json:"userType"`
 	Language       string     `json:"language"`
 	Message        string     `json:"message"`
+	Secret         string     `json:"secret,omitempty"`
+}
+
+type BiometricLoginRequest struct {
+	MSISDN string `json:"msisdn"`
+	Secret string `json:"secret"`
+}
+
+type BiometricRegisterResponse struct {
+	Success bool   `json:"success"`
+	Secret  string `json:"secret,omitempty"`
+	Message string `json:"message,omitempty"`
+	Data    struct {
+		Secret string `json:"secret,omitempty"`
+	} `json:"data,omitempty"`
 }
 
 type RefreshTokenRequest struct {
@@ -265,9 +281,24 @@ type CDRDetailResponse struct {
 	Data    *CDRDetailData `json:"data"`
 }
 
-// CDRConfirmRequest represents the body payload for /api/v1/cdr/confirm.
+type GenericSMSConfirmationDTO struct {
+	PID      string `json:"PID"`
+	Passcode string `json:"passcode"`
+}
+
 type CDRConfirmRequest struct {
-	Code string `json:"code"`
+	PID      string `json:"PID,omitempty"`
+	Passcode string `json:"passcode,omitempty"`
+	Code     string `json:"code,omitempty"`
+}
+
+type CDROTPResponse struct {
+	Success bool   `json:"success"`
+	NextURL string `json:"nextUrl"`
+	Message string `json:"message"`
+	Data    struct {
+		NextURL string `json:"nextUrl"`
+	} `json:"data"`
 }
 
 type BundleRecord struct {
@@ -633,14 +664,31 @@ type ProfileV2Response struct {
 }
 
 type SessionData struct {
-	AccessToken    string     `json:"access_token"`
-	RefreshToken   string     `json:"refresh_token"`
-	HandshakeToken string     `json:"handshake_token"`
-	UserID         FlexString `json:"userId"`
-	Username       string     `json:"username"`
-	DeviceID       string     `json:"deviceId"`
-	Language       string     `json:"language"`
-	LastRefresh    time.Time  `json:"last_refresh,omitempty"`
+	AccessToken     string     `json:"access_token"`
+	RefreshToken    string     `json:"refresh_token"`
+	HandshakeToken  string     `json:"handshake_token"`
+	UserID          FlexString `json:"userId"`
+	Username        string     `json:"username"`
+	Phone           string     `json:"phone,omitempty"`
+	DeviceID        string     `json:"deviceId"`
+	BiometricSecret string     `json:"biometric_secret,omitempty"`
+	Language        string     `json:"language"`
+	LastRefresh     time.Time  `json:"last_refresh,omitempty"`
+}
+
+type Session = SessionData
+
+type KeepAlivePulse struct {
+	Timestamp  time.Time `json:"timestamp"`
+	ProfileOK  bool      `json:"profile_ok"`
+	CDROK      bool      `json:"cdr_ok"`
+	CDRExpired bool      `json:"cdr_expired"`
+	Err        error     `json:"-"`
+}
+
+type SessionStorage interface {
+	SaveSession(ctx context.Context, session *SessionData) error
+	LoadSession(ctx context.Context) (*SessionData, error)
 }
 
 type HomeHeader struct {

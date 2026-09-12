@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -206,26 +207,77 @@ func (c *Client) GetCDRTransferHistory(ctx context.Context, page, limit int) ([]
 	return cdrResp.Data.Data, nil
 }
 
-// SendCDROTP triggers an SMS OTP to activate CDR ledger access for the current session.
-func (c *Client) SendCDROTP(ctx context.Context) error {
+// SendCDROTP triggers an SMS OTP to activate CDR ledger access for the current session and returns the extracted PID.
+func (c *Client) SendCDROTP(ctx context.Context) (string, error) {
 	path := fmt.Sprintf("/api/v1/cdr/send-otp?lang=%s", c.language)
 	body := strings.NewReader("{}")
 	resp, err := c.doRequest(ctx, http.MethodPost, path, body)
 	if err != nil {
-		return fmt.Errorf("requesting CDR OTP: %w", err)
+		return "", fmt.Errorf("requesting CDR OTP: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		return ErrUnauthorized
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden || resp.StatusCode == 493 {
+		return "", ErrUnauthorized
 	}
-	return nil
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("reading CDR OTP response: %w", err)
+	}
+
+	var otpResp CDROTPResponse
+	if err := json.Unmarshal(bodyBytes, &otpResp); err != nil {
+		return "", fmt.Errorf("decoding CDR OTP response: %w", err)
+	}
+
+	nextURL := otpResp.NextURL
+	if nextURL == "" {
+		nextURL = otpResp.Data.NextURL
+	}
+
+	if nextURL == "" {
+		return "", fmt.Errorf("missing nextUrl in CDR OTP response: %w", ErrMissingPID)
+	}
+
+	pid, err := extractPIDFromURL(nextURL)
+	if err != nil {
+		return "", fmt.Errorf("extracting PID from CDR nextUrl: %w", err)
+	}
+
+	c.SetLastCDRPID(pid)
+	return pid, nil
 }
 
 // ConfirmCDROTP confirms the SMS OTP code to activate CDR ledger access for the current session.
-func (c *Client) ConfirmCDROTP(ctx context.Context, otpCode string) error {
+// It accepts either ConfirmCDROTP(ctx, passcode) using the cached PID from SendCDROTP,
+// or ConfirmCDROTP(ctx, pid, passcode) explicitly.
+// The payload strictly conforms to GenericSMSConfirmationDTO {"PID": pid, "passcode": code}.
+func (c *Client) ConfirmCDROTP(ctx context.Context, args ...string) error {
+	var pid, passcode string
+	switch len(args) {
+	case 1:
+		passcode = args[0]
+		pid = c.LastCDRPID()
+	case 2:
+		pid = args[0]
+		passcode = args[1]
+	default:
+		return fmt.Errorf("invalid arguments to ConfirmCDROTP: expected (passcode) or (pid, passcode)")
+	}
+
+	if pid == "" {
+		return fmt.Errorf("missing CDR PID: %w", ErrMissingPID)
+	}
+	if passcode == "" {
+		return fmt.Errorf("missing CDR passcode: %w", ErrInvalidPasscode)
+	}
+
 	path := fmt.Sprintf("/api/v1/cdr/confirm?lang=%s", c.language)
-	payload, err := json.Marshal(CDRConfirmRequest{Code: otpCode})
+	payload, err := json.Marshal(GenericSMSConfirmationDTO{
+		PID:      pid,
+		Passcode: passcode,
+	})
 	if err != nil {
 		return fmt.Errorf("marshaling CDR confirmation payload: %w", err)
 	}
@@ -236,9 +288,20 @@ func (c *Client) ConfirmCDROTP(ctx context.Context, otpCode string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden || resp.StatusCode == 493 {
 		return ErrUnauthorized
 	}
+
+	var confirmResp struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&confirmResp); err == nil {
+		if !confirmResp.Success && confirmResp.Message != "" {
+			return fmt.Errorf("%w: %s", ErrRequestFailed, confirmResp.Message)
+		}
+	}
+
 	return nil
 }
 
@@ -932,15 +995,22 @@ func (c *Client) ExportSession() (*SessionData, error) {
 		return nil, ErrUnauthorized
 	}
 
+	phone := c.phone
+	if phone == "" {
+		phone = c.username
+	}
+
 	return &SessionData{
-		AccessToken:    c.accessToken,
-		RefreshToken:   c.refreshToken,
-		HandshakeToken: c.handshakeToken,
-		UserID:         FlexString(c.userID),
-		Username:       c.username,
-		DeviceID:       c.deviceID,
-		Language:       c.language,
-		LastRefresh:    c.lastRefresh,
+		AccessToken:     c.accessToken,
+		RefreshToken:    c.refreshToken,
+		HandshakeToken:  c.handshakeToken,
+		UserID:          FlexString(c.userID),
+		Username:        c.username,
+		Phone:           phone,
+		DeviceID:        c.deviceID,
+		BiometricSecret: c.biometricSecret,
+		Language:        c.language,
+		LastRefresh:     c.lastRefresh,
 	}, nil
 }
 
@@ -957,6 +1027,14 @@ func (c *Client) ImportSession(data *SessionData) error {
 	c.handshakeToken = data.HandshakeToken
 	c.userID = string(data.UserID)
 	c.username = data.Username
+	if data.Phone != "" {
+		c.phone = data.Phone
+	} else if data.Username != "" {
+		c.phone = data.Username
+	}
+	if data.BiometricSecret != "" {
+		c.biometricSecret = data.BiometricSecret
+	}
 	c.lastRefresh = data.LastRefresh
 	if c.lastRefresh.IsZero() {
 		c.lastRefresh = time.Now()
@@ -1048,6 +1126,183 @@ func (c *Client) AutoRefreshToken(ctx context.Context) error {
 	}
 
 	return c.RefreshToken(ctx)
+}
+
+func (c *Client) SaveToStorage(ctx context.Context, storage SessionStorage) error {
+	if storage == nil {
+		return fmt.Errorf("session storage is nil")
+	}
+	data, err := c.ExportSession()
+	if err != nil {
+		return err
+	}
+	return storage.SaveSession(ctx, data)
+}
+
+func (c *Client) LoadFromStorage(ctx context.Context, storage SessionStorage) error {
+	if storage == nil {
+		return fmt.Errorf("session storage is nil")
+	}
+	data, err := storage.LoadSession(ctx)
+	if err != nil {
+		return err
+	}
+	return c.ImportSession(data)
+}
+
+// StartKeepAlive starts a background keep-alive goroutine that pulses Asiacell servers at the given interval (default 15 minutes).
+// Each pulse queries the user profile and fetches CDR transfer history to keep the CDR session warm and active.
+// It returns a channel emitting KeepAlivePulse events and stops cleanly when ctx is cancelled.
+func (c *Client) StartKeepAlive(ctx context.Context, interval ...time.Duration) <-chan KeepAlivePulse {
+	pulseInterval := 15 * time.Minute
+	if len(interval) > 0 && interval[0] > 0 {
+		pulseInterval = interval[0]
+	}
+
+	pulseChan := make(chan KeepAlivePulse, 10)
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// goroutine panic isolation
+			}
+			close(pulseChan)
+		}()
+
+		ticker := time.NewTicker(pulseInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case t := <-ticker.C:
+				pulse := KeepAlivePulse{
+					Timestamp: t,
+				}
+
+				// 1. Check profile to keep main token alive
+				_, errProfile := c.GetProfile(ctx)
+				if errProfile == nil {
+					pulse.ProfileOK = true
+				} else {
+					pulse.Err = errProfile
+				}
+
+				// 2. Fetch CDR ledger to keep CDR session warm and prevent inactivity timeout
+				_, errCDR := c.GetCDRTransferHistory(ctx, 1, 30)
+				if errCDR == nil {
+					pulse.CDROK = true
+				} else {
+					pulse.CDROK = false
+					pulse.CDRExpired = true
+					if pulse.Err == nil {
+						pulse.Err = errCDR
+					}
+
+					c.mu.RLock()
+					cb := c.onCDRExpired
+					c.mu.RUnlock()
+					if cb != nil {
+						cb()
+					}
+				}
+
+				select {
+				case pulseChan <- pulse:
+				default:
+				}
+			}
+		}
+	}()
+
+	return pulseChan
+}
+
+type FileSessionStorage struct {
+	filePath string
+	mu       sync.RWMutex
+}
+
+func NewFileSessionStorage(filePath string) *FileSessionStorage {
+	return &FileSessionStorage{filePath: filePath}
+}
+
+func (f *FileSessionStorage) SaveSession(ctx context.Context, session *SessionData) error {
+	if session == nil {
+		return fmt.Errorf("session data is nil")
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	dir := filepath.Dir(f.filePath)
+	if dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("creating session directory: %w", err)
+		}
+	}
+
+	raw, err := json.MarshalIndent(session, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshaling session data: %w", err)
+	}
+
+	tmpFile := fmt.Sprintf("%s.tmp.%d", f.filePath, time.Now().UnixNano())
+	if err := os.WriteFile(tmpFile, raw, 0600); err != nil {
+		return fmt.Errorf("writing temporary session file: %w", err)
+	}
+
+	if err := os.Rename(tmpFile, f.filePath); err != nil {
+		_ = os.Remove(tmpFile)
+		return fmt.Errorf("renaming session file: %w", err)
+	}
+	return nil
+}
+
+func (f *FileSessionStorage) LoadSession(ctx context.Context) (*SessionData, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	data, err := os.ReadFile(f.filePath)
+	if err != nil {
+		return nil, fmt.Errorf("reading session file: %w", err)
+	}
+
+	var sess SessionData
+	if err := json.Unmarshal(data, &sess); err != nil {
+		return nil, fmt.Errorf("unmarshaling session data: %w", err)
+	}
+	return &sess, nil
+}
+
+type MemorySessionStorage struct {
+	session *SessionData
+	mu      sync.RWMutex
+}
+
+func NewMemorySessionStorage() *MemorySessionStorage {
+	return &MemorySessionStorage{}
+}
+
+func (m *MemorySessionStorage) SaveSession(ctx context.Context, session *SessionData) error {
+	if session == nil {
+		return fmt.Errorf("session data is nil")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	copied := *session
+	m.session = &copied
+	return nil
+}
+
+func (m *MemorySessionStorage) LoadSession(ctx context.Context) (*SessionData, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.session == nil {
+		return nil, ErrUnauthorized
+	}
+	copied := *m.session
+	return &copied, nil
 }
 
 func (c *Client) GetServicesManagement(ctx context.Context) (*ServicesManagementOverview, error) {

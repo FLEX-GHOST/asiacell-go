@@ -58,7 +58,6 @@ func (c *Client) Login(ctx context.Context, phone string) (string, error) {
 
 	if !loginResp.Success {
 		if loginResp.RequireCaptcha || strings.Contains(strings.ToLower(loginResp.Message), "captcha") {
-			_, _ = c.RotateDeviceID()
 			retryResp, retryErr := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/login?lang=%s", c.language), bytes.NewReader(payload))
 			if retryErr == nil {
 				defer retryResp.Body.Close()
@@ -115,6 +114,10 @@ func (c *Client) VerifySMS(ctx context.Context, pid, passcode string) (*SMSValid
 	}
 
 	c.SetTokens(smsResp.AccessToken, smsResp.RefreshToken, smsResp.HandshakeToken, string(smsResp.UserID), smsResp.Username)
+	if smsResp.Secret != "" {
+		c.SetBiometricSecret(smsResp.Secret)
+	}
+	_ = c.RegisterBiometrics(ctx)
 
 	return &smsResp, nil
 }
@@ -152,9 +155,121 @@ func (c *Client) RefreshToken(ctx context.Context) error {
 		return fmt.Errorf("%w: %s", ErrRequestFailed, refreshResp.Message)
 	}
 
+	if refreshResp.Secret != "" {
+		c.SetBiometricSecret(refreshResp.Secret)
+	}
+
 	c.SetTokens(refreshResp.AccessToken, refreshResp.RefreshToken, refreshResp.HandshakeToken, string(refreshResp.UserID), refreshResp.Username)
 
 	return nil
+}
+
+func (c *Client) RefreshSession(ctx context.Context) error {
+	if err := c.RefreshToken(ctx); err == nil {
+		return nil
+	}
+
+	c.mu.RLock()
+	sec := c.biometricSecret
+	phone := c.phone
+	if phone == "" {
+		phone = c.username
+	}
+	c.mu.RUnlock()
+
+	if sec != "" && phone != "" {
+		if _, err := c.LoginBiometric(ctx, sec); err == nil {
+			return nil
+		}
+	}
+
+	return ErrUnauthorized
+}
+
+func (c *Client) LoginBiometric(ctx context.Context, optionalSecret ...string) (*LoginResponse, error) {
+	c.mu.RLock()
+	sec := c.biometricSecret
+	phone := c.phone
+	if phone == "" {
+		phone = c.username
+	}
+	c.mu.RUnlock()
+
+	if len(optionalSecret) > 0 && optionalSecret[0] != "" {
+		sec = optionalSecret[0]
+	}
+
+	if sec == "" {
+		return nil, fmt.Errorf("biometric login requires secret: %w", ErrUnauthorized)
+	}
+
+	reqMap := map[string]string{
+		"secret": sec,
+		"key":    sec,
+	}
+	if phone != "" {
+		reqMap["msisdn"] = phone
+	}
+
+	payload, err := json.Marshal(reqMap)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling biometric login payload: %w", err)
+	}
+
+	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/biometrics/do-login?lang=%s", c.language), bytes.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("executing biometric login: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden || resp.StatusCode == 493 {
+		return nil, ErrUnauthorized
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading biometric login response: %w", err)
+	}
+
+	var bioResp struct {
+		Success        bool       `json:"success"`
+		AccessToken    string     `json:"access_token"`
+		RefreshToken   string     `json:"refresh_token"`
+		HandshakeToken string     `json:"handshake_token"`
+		UserID         FlexString `json:"userId"`
+		Username       string     `json:"username"`
+		Secret         string     `json:"secret,omitempty"`
+		Message        string     `json:"message,omitempty"`
+	}
+
+	if err := json.Unmarshal(bodyBytes, &bioResp); err != nil {
+		return nil, fmt.Errorf("decoding biometric login response: %w", err)
+	}
+
+	if !bioResp.Success && bioResp.AccessToken == "" {
+		if bioResp.Message != "" {
+			return nil, fmt.Errorf("%w: %s", ErrRequestFailed, bioResp.Message)
+		}
+		return nil, ErrRequestFailed
+	}
+
+	if bioResp.Username == "" {
+		bioResp.Username = phone
+	}
+
+	if bioResp.Secret != "" {
+		c.SetBiometricSecret(bioResp.Secret)
+	}
+
+	if bioResp.AccessToken != "" {
+		c.SetTokens(bioResp.AccessToken, bioResp.RefreshToken, bioResp.HandshakeToken, string(bioResp.UserID), bioResp.Username)
+	}
+
+	return &LoginResponse{
+		Success:  bioResp.Success,
+		Username: bioResp.Username,
+		Message:  bioResp.Message,
+	}, nil
 }
 
 func (c *Client) GetCaptcha(ctx context.Context) (*CaptchaData, error) {
