@@ -176,18 +176,41 @@ func (c *Client) VerifyTransferTo(ctx context.Context, targetPhone string, minAm
 	return false, nil, nil
 }
 
-// GetCDRTransferHistory fetches incoming and outgoing balance transfer records directly from Asiacell's CDR ledger.
-func (c *Client) GetCDRTransferHistory(ctx context.Context, page, limit int) ([]CDRRecord, error) {
+// GetCDROnboarding retrieves the official onboarding and PIN disclaimer screen for CDR usage ledger (/api/v1/cdr).
+func (c *Client) GetCDROnboarding(ctx context.Context) (*CDROnboardingResponse, error) {
+	path := fmt.Sprintf("/api/v1/cdr?lang=%s", c.language)
+	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("requesting CDR onboarding: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, ErrUnauthorized
+	}
+
+	var onboardingResp CDROnboardingResponse
+	if err := json.NewDecoder(resp.Body).Decode(&onboardingResp); err != nil {
+		return nil, fmt.Errorf("decoding CDR onboarding response: %w", err)
+	}
+	return &onboardingResp, nil
+}
+
+// GetCDRDetail retrieves CDR usage records for any supported category (e.g. btransfer, voice, sms, data, recharge, subscription, brn, ded, cmp, lad, lcr).
+func (c *Client) GetCDRDetail(ctx context.Context, cdrType string, page, limit int) ([]CDRRecord, error) {
+	if cdrType == "" {
+		cdrType = "btransfer"
+	}
 	if page <= 0 {
 		page = 1
 	}
 	if limit <= 0 {
 		limit = 30
 	}
-	path := fmt.Sprintf("/api/v1/cdr/detail?type=btransfer&page=%d&limit=%d&lang=%s", page, limit, c.language)
+	path := fmt.Sprintf("/api/v1/cdr/detail?type=%s&page=%d&limit=%d&lang=%s", cdrType, page, limit, c.language)
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
-		return nil, fmt.Errorf("requesting CDR transfer history: %w", err)
+		return nil, fmt.Errorf("requesting CDR %s history: %w", cdrType, err)
 	}
 	defer resp.Body.Close()
 
@@ -197,7 +220,7 @@ func (c *Client) GetCDRTransferHistory(ctx context.Context, page, limit int) ([]
 
 	var cdrResp CDRDetailResponse
 	if err := json.NewDecoder(resp.Body).Decode(&cdrResp); err != nil {
-		return nil, fmt.Errorf("decoding CDR transfer history response: %w", err)
+		return nil, fmt.Errorf("decoding CDR %s history response: %w", cdrType, err)
 	}
 
 	if !cdrResp.Success || cdrResp.Data == nil {
@@ -205,6 +228,11 @@ func (c *Client) GetCDRTransferHistory(ctx context.Context, page, limit int) ([]
 	}
 
 	return cdrResp.Data.Data, nil
+}
+
+// GetCDRTransferHistory fetches incoming and outgoing balance transfer records directly from Asiacell's CDR ledger.
+func (c *Client) GetCDRTransferHistory(ctx context.Context, page, limit int) ([]CDRRecord, error) {
+	return c.GetCDRDetail(ctx, "btransfer", page, limit)
 }
 
 // SendCDROTP triggers an SMS OTP to activate CDR ledger access for the current session and returns the extracted PID.

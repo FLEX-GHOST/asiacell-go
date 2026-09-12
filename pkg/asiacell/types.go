@@ -281,6 +281,27 @@ type CDRDetailResponse struct {
 	Data    *CDRDetailData `json:"data"`
 }
 
+type CDROnboardingHeader struct {
+	BackgroundImage   string `json:"backgroundImage"`
+	InvertedTextColor bool   `json:"invertedTextColor"`
+}
+
+type CDROnboardingBody struct {
+	Desc         string             `json:"desc"`
+	Disclaimer   string             `json:"disclaimer"`
+	ActionButton *ServiceActionItem `json:"actionButton,omitempty"`
+}
+
+type CDROnboardingData struct {
+	Headers []CDROnboardingHeader `json:"headers"`
+	Body    []CDROnboardingBody   `json:"body"`
+}
+
+type CDROnboardingResponse struct {
+	Success bool               `json:"success"`
+	Data    *CDROnboardingData `json:"data"`
+}
+
 type GenericSMSConfirmationDTO struct {
 	PID      string `json:"PID"`
 	Passcode string `json:"passcode"`

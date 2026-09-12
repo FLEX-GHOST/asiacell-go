@@ -636,3 +636,74 @@ func TestProactiveTokenRefresh(t *testing.T) {
 	}
 }
 
+func TestCDROnboardingAndDetailCategories(t *testing.T) {
+	ctx := context.Background()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/cdr":
+			_ = json.NewEncoder(w).Encode(CDROnboardingResponse{
+				Success: true,
+				Data: &CDROnboardingData{
+					Headers: []CDROnboardingHeader{
+						{BackgroundImage: "https://odpapp.asiacell.com/img/my-pocket-onboarding-ar.jpg"},
+					},
+					Body: []CDROnboardingBody{
+						{
+							Desc:       "مع خدمة سجل الاستخدام...",
+							Disclaimer: "سوف نتحقق من رقمك باستخدام رمز PIN",
+							ActionButton: &ServiceActionItem{
+								Title: "أطلب الـ PIN عبر SMS",
+							},
+						},
+					},
+				},
+			})
+		case "/api/v1/cdr/detail":
+			cdrType := r.URL.Query().Get("type")
+			_ = json.NewEncoder(w).Encode(CDRDetailResponse{
+				Success: true,
+				Data: &CDRDetailData{
+					Total: 1,
+					Data: []CDRRecord{
+						{
+							Title:  FlexString("سجل " + cdrType),
+							Amount: FlexString("100"),
+							Unit:   FlexString(cdrType),
+						},
+					},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewClient(WithTokens("valid-tok", "valid-ref"))
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+	client.baseURL = server.URL
+
+	onboarding, err := client.GetCDROnboarding(ctx)
+	if err != nil {
+		t.Fatalf("GetCDROnboarding failed: %v", err)
+	}
+	if !onboarding.Success || len(onboarding.Data.Body) == 0 || onboarding.Data.Body[0].ActionButton.Title != "أطلب الـ PIN عبر SMS" {
+		t.Fatalf("unexpected onboarding response: %+v", onboarding)
+	}
+
+	for _, category := range []string{"voice", "data", "sms", "btransfer", "cmp"} {
+		records, err := client.GetCDRDetail(ctx, category, 1, 10)
+		if err != nil {
+			t.Fatalf("GetCDRDetail(%s) failed: %v", category, err)
+		}
+		if len(records) != 1 || string(records[0].Unit) != category {
+			t.Fatalf("unexpected records for category %s: %+v", category, records)
+		}
+	}
+}
+
+

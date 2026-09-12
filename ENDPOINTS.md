@@ -37,31 +37,32 @@
 | **10** | `GET` | `/api/v1/addon/tags/` | `client.GetAddonTags(ctx)` | أقسام وتصنيفات الباقات الإضافية (إنترنت، تجوال، اتصالات، خدمات) |
 | **11** | `GET` | `/api/v1/addon/summary/` | `client.GetAddonSummary(ctx, tagID)` | تفاصيل الباقات والأسعار لقسم محدد من الباقات |
 | **12** | `POST` | `/api/v1/addon/subscribe` | `client.SubscribeAddon(ctx, addonID)` | تفعيل واشتراك فوري في الباقة مع خصم قيمتها من الرصيد مباشرة |
-| **13** | `GET` | `/api/v1/cdr/detail?type=btransfer` | `client.GetCDRTransferHistory(ctx, page, limit)` | جلب سجل كشف الحساب لتحويلات الرصيد الواردة والصادرة مع رقم المرسل والمبلغ والتاريخ |
-| **14** | `POST` | `/api/v1/cdr/send-otp` | `client.SendCDROTP(ctx)` | طلب رمز OTP واستخراج معرّف العملية PID من رابط nextUrl لتفعيل خدمة كشف الحساب للجلسة |
-| **15** | `POST` | `/api/v1/cdr/confirm` | `client.ConfirmCDROTP(ctx, pid, code)` | تأكيد رمز OTP بواسطة GenericSMSConfirmationDTO لتفعيل كشف الحساب (حظر تام لـ smsvalidation) |
-| **16** | `GET` | `/api/v1/transaction/transfer` | `client.GetTransferHistory(ctx)` | سجل وتاريخ عمليات تحويل الرصيد السابقة على الخط (المحفظة) |
-| **17** | `POST` | `/api/v1/credit-transfer/start` | `client.StartCreditTransfer(ctx, to, amt)` | بدء تحويل رصيد من الشريحة لرقم آخر وتوليد معرف العملية PID |
-| **18** | `POST` | `/api/v1/credit-transfer/do-transfer` | `client.ConfirmCreditTransfer(ctx, pid, code)` | تأكيد تحويل الرصيد بإدخال رمز التحقق المرسل إلى الهاتف |
-| **19** | `POST` | `/api/v1/top-up` | `client.RechargeVoucher(ctx, to, code, type)` | شحن وتعبئة كارت آسياسيل عبر كود الكارت (13-14 رقماً) عادي أو إنترنت |
-| **20** | `GET` | `/api/v1/transaction/recharge` | `client.GetRechargeHistory(ctx)` | سجل وتاريخ عمليات شحن الكروت السابقة على الخط |
-| **21** | `GET` | `/api/v1/profile/subscriptions` | `client.GetMySubscriptions(ctx)` | استعلام جميع الخدمات والاشتراكات الفعالة على الخط وصلاحياتها مباشرة من الخادم |
-| **22** | `POST` | `/api/v1/ussd` | `client.SubmitUSSDAction(ctx, params)` | تنفيذ وتفعيل أوامر وخدمات الـ USSD السحابية التفاعلية عبر HTTP مباشرة |
-| **23** | `GET` | `/api/v1/ussd` | `client.GetUSSDMenu(ctx, parentID)` | تصفح واستعلام قوائم الـ USSD التفاعلية السحابية من الخادم |
-| **24** | `GET` | `/api/v1/transaction/bundle` | `client.GetSubscriptionHistory(ctx)` | سجل وتاريخ عمليات شراء واشتراك الباقات السابقة على الخط |
-| **25** | `GET` | `/api/v1/digital-services` | `client.GetDigitalServices(ctx)` | الخدمات الترفيهية والقيمة المضافة الرقمية |
-| **26** | `GET` | `/api/v1/partners/cities` | `client.GetCities(ctx)` | قائمة بجميع المحافظات والمدن العراقية ومعرفاتها |
-| **27** | `GET` | `/api/v1/shops` | `client.GetCityShops(ctx, cityID)` | مراكز وفروع آسياسيل المعتمدة: العناوين، الإحداثيات، وحالة الفتح/الإغلاق |
-| **28** | `GET` | `/api/v1/spin-wheel` | `client.GetSpinWheelStatus(ctx)` | حالة عجلة الحظ اليومية وما إذا كانت متاحة للدوران |
-| **29** | `POST` | `/api/v1/spin-wheel/play` | `client.PlaySpinWheel(ctx)` | تدوير عجلة الحظ واستلام الجائزة اليومية (ميغابايت أو رصيد مجاني) |
-| **30** | `GET` | `/api/v2/vanity/classes` | `client.GetVanityClasses(ctx)` | استعراض فئات وتصنيفات الأرقام المميزة (الماسية، الذهبية، الفضية) وأسعارها |
-| **31** | `GET` | `/api/v2/vanity` | `client.SearchVanityNumbers(ctx, pat, class, p, l)` | البحث في الأرقام المميزة المتاحة للبيع بنمط أو فئة معينة |
-| **32** | `GET` | `/api/v2/vanity/{msisdn}/detail` | `client.GetVanityDetail(ctx, msisdn)` | تفاصيل وسعر وشروط حجز رقم مميز محدد |
-| **33** | `POST` | `/api/v2/vanity` | `client.ReserveVanityNumber(ctx, msisdn, classId)` | حجز الرقم المميز مباشرة باسم المشترك وتوليد معرف العملية |
-| **34** | `POST` | `/api/v1/addon/send-as-gift` | `client.SendGiftAddon(ctx, addonId, to)` | شراء باقة إنترنت أو اتصالات وإهداؤها لرقم آخر بخصم من الرصيد |
-| **35** | `GET` | `/api/v1/resolution-center/categories` | `client.GetTicketCategories(ctx)` | أقسام وتصنيفات الشكاوى الفنية المعتمدة في آسياسيل |
-| **36** | `GET` | `/api/v1/resolution-center` | `client.GetTickets(ctx)` | سجل تذاكر الشكاوى المفتوحة وتحديثات مسار المعالجة |
-| **37** | `POST` | `/api/v1/resolution-center` | `client.CreateTicket(ctx, catId, desc)` | فتح وإرسال تذكرة شكوى رسمية جديدة لإدارة العمليات والدعم |
+| **13** | `GET` | `/api/v1/cdr` | `client.GetCDROnboarding(ctx)` | شاشة الترحيب والتعريف الرسمية لخدمة سجل الاستخدام وطلب رمز PIN عبر SMS |
+| **14** | `GET` | `/api/v1/cdr/detail?type={type}` | `client.GetCDRDetail(ctx, type, page, limit)` | استعلام سجل كشف الحساب لـ 11 فئة مختلفة: `btransfer`, `voice`, `sms`, `data`, `recharge`, `subscription`, `brn`, `ded`, `cmp`, `lad`, `lcr` |
+| **15** | `POST` | `/api/v1/cdr/send-otp` | `client.SendCDROTP(ctx)` | طلب رمز OTP واستخراج معرّف العملية PID من رابط nextUrl لتفعيل خدمة كشف الحساب للجلسة |
+| **16** | `POST` | `/api/v1/cdr/confirm` | `client.ConfirmCDROTP(ctx, pid, code)` | تأكيد رمز OTP بواسطة GenericSMSConfirmationDTO لتفعيل كشف الحساب (حظر تام لـ smsvalidation) |
+| **17** | `GET` | `/api/v1/transaction/transfer` | `client.GetTransferHistory(ctx)` | سجل وتاريخ عمليات تحويل الرصيد السابقة على الخط (المحفظة) |
+| **18** | `POST` | `/api/v1/credit-transfer/start` | `client.StartCreditTransfer(ctx, to, amt)` | بدء تحويل رصيد من الشريحة لرقم آخر وتوليد معرف العملية PID |
+| **19** | `POST` | `/api/v1/credit-transfer/do-transfer` | `client.ConfirmCreditTransfer(ctx, pid, code)` | تأكيد تحويل الرصيد بإدخال رمز التحقق المرسل إلى الهاتف |
+| **20** | `POST` | `/api/v1/top-up` | `client.RechargeVoucher(ctx, to, code, type)` | شحن وتعبئة كارت آسياسيل عبر كود الكارت (13-14 رقماً) عادي أو إنترنت |
+| **21** | `GET` | `/api/v1/transaction/recharge` | `client.GetRechargeHistory(ctx)` | سجل وتاريخ عمليات شحن الكروت السابقة على الخط |
+| **22** | `GET` | `/api/v1/profile/subscriptions` | `client.GetMySubscriptions(ctx)` | استعلام جميع الخدمات والاشتراكات الفعالة على الخط وصلاحياتها مباشرة من الخادم |
+| **23** | `POST` | `/api/v1/ussd` | `client.SubmitUSSDAction(ctx, params)` | تنفيذ وتفعيل أوامر وخدمات الـ USSD السحابية التفاعلية عبر HTTP مباشرة |
+| **24** | `GET` | `/api/v1/ussd` | `client.GetUSSDMenu(ctx, parentID)` | تصفح واستعلام قوائم الـ USSD التفاعلية السحابية من الخادم |
+| **25** | `GET` | `/api/v1/transaction/bundle` | `client.GetSubscriptionHistory(ctx)` | سجل وتاريخ عمليات شراء واشتراك الباقات السابقة على الخط |
+| **26** | `GET` | `/api/v1/digital-services` | `client.GetDigitalServices(ctx)` | الخدمات الترفيهية والقيمة المضافة الرقمية |
+| **27** | `GET` | `/api/v1/partners/cities` | `client.GetCities(ctx)` | قائمة بجميع المحافظات والمدن العراقية ومعرفاتها |
+| **28** | `GET` | `/api/v1/shops` | `client.GetCityShops(ctx, cityID)` | مراكز وفروع آسياسيل المعتمدة: العناوين، الإحداثيات، وحالة الفتح/الإغلاق |
+| **29** | `GET` | `/api/v1/spin-wheel` | `client.GetSpinWheelStatus(ctx)` | حالة عجلة الحظ اليومية وما إذا كانت متاحة للدوران |
+| **30** | `POST` | `/api/v1/spin-wheel/play` | `client.PlaySpinWheel(ctx)` | تدوير عجلة الحظ واستلام الجائزة اليومية (ميغابايت أو رصيد مجاني) |
+| **31** | `GET` | `/api/v2/vanity/classes` | `client.GetVanityClasses(ctx)` | استعراض فئات وتصنيفات الأرقام المميزة (الماسية، الذهبية، الفضية) وأسعارها |
+| **32** | `GET` | `/api/v2/vanity` | `client.SearchVanityNumbers(ctx, pat, class, p, l)` | البحث في الأرقام المميزة المتاحة للبيع بنمط أو فئة معينة |
+| **33** | `GET` | `/api/v2/vanity/{msisdn}/detail` | `client.GetVanityDetail(ctx, msisdn)` | تفاصيل وسعر وشروط حجز رقم مميز محدد |
+| **34** | `POST` | `/api/v2/vanity` | `client.ReserveVanityNumber(ctx, msisdn, classId)` | حجز الرقم المميز مباشرة باسم المشترك وتوليد معرف العملية |
+| **35** | `POST` | `/api/v1/addon/send-as-gift` | `client.SendGiftAddon(ctx, addonId, to)` | شراء باقة إنترنت أو اتصالات وإهداؤها لرقم آخر بخصم من الرصيد |
+| **36** | `GET` | `/api/v1/resolution-center/categories` | `client.GetTicketCategories(ctx)` | أقسام وتصنيفات الشكاوى الفنية المعتمدة في آسياسيل |
+| **37** | `GET` | `/api/v1/resolution-center` | `client.GetTickets(ctx)` | سجل تذاكر الشكاوى المفتوحة وتحديثات مسار المعالجة |
+| **38** | `POST` | `/api/v1/resolution-center` | `client.CreateTicket(ctx, catId, desc)` | فتح وإرسال تذكرة شكوى رسمية جديدة لإدارة العمليات والدعم |
 | **38** | `GET` | `/api/v1/compensation` | `client.CheckCompensation(ctx)` | فحص استحقاق الخط للتعويضات الرسمية (جيجابايت أو رصيد مجاني) |
 | **39** | `GET` | `/api/v1/yooz-mgm` | `client.GetYoozMGM(ctx)` | استخراج كود الإحالة وإحصائيات دعوة الأصدقاء لخطوط Yooz |
 | **40** | `POST` | `/api/v1/yooz-mgm/apply-code` | `client.ApplyYoozMGMCode(ctx, code)` | تفعيل كود دعوة للحصول على البونص والمكافآت المجانية |
@@ -238,6 +239,28 @@ X-ODP-API-KEY: 1ccbc4c913bc4ce785a0a2de444aa0d6
 ```
 
 </div>
+
+#### فئات كشف الحساب المدعومة (Supported CDR Categories):
+يدعم مسار `GET /api/v1/cdr/detail?type={category}` استعلام 11 فئة استخدام مختلفة مطابقة تماماً لواجهات التطبيق الرسمي:
+
+| فئة الـ CDR (`type`) | اسم الفئة بالعربية | الوصف وما تحتويه السجلات |
+| :--- | :--- | :--- |
+| `btransfer` | تحويل الرصيد | الحوالات الواردة والصادرة مع رقم الطرف الثاني والمبلغ والوحدة `TRANSFERS` |
+| `voice` | المكالمات الصوتية | جميع المكالمات الصادرة والواردة والمدة الزمنية المستهلكة |
+| `sms` | الرسائل القصيرة | سجل الرسائل الصادرة والواردة وعددها |
+| `data` | استهلاك الإنترنت | استهلاك حزم الميغابايت والغيغابايت لكل جلسة اتصال |
+| `recharge` | شحن الرصيد | سجل كروت الشحن وعمليات الشحن الإلكتروني المنفذة على الرقم |
+| `subscription` | تفعيل الباقات | تفاصيل الاشتراكات في باقات الإنترنت والاتصال وأسماء الباقات |
+| `brn` | التجديدات التلقائية | سجل تجديد الباقات دورياً والاستقطاعات المرافقة لها |
+| `ded` | الاستقطاعات | سجل الرصيد المستخدم والاستقطاعات اليومية على الخط |
+| `cmp` | التعويضات | سجل التعويضات الممنوحة للخط (دقائق أو ميغابايت أو رصيد مجاني) |
+| `lad` | سلف القروض | سجل المبالغ المقترضة عبر خدمات السلفة (Load Advance) |
+| `lcr` | القروض المستردة | سجل المبالغ المسترجعة والمستردة من السلف السابقة |
+
+#### شاشة التعريف والترحيب لخدمة كشف الحساب (CDR Onboarding Screen):
+- المسار: `GET /api/v1/cdr?lang=ar` (`client.GetCDROnboarding(ctx)`)
+- يعيد وصف الخدمة الرسمي وصورة الغلاف ورسالة الأمان:
+  > *"من أجل حماية خصوصيتك، سوف نتحقق من رقمك بإستخدام رمز PIN نرسلە إلیك برسالة قصیرة."*
 
 #### تفعيل كشف الحساب والتحقق الثنائي (CDR 2FA Activation):
 وفقاً للهندسة العكسية الدقيقة لتطبيق آسياسيل الرسمي (v5.1.0)، تتطلب عملية تفعيل كشف الحساب خطوتين متتاليتين بحزم:
