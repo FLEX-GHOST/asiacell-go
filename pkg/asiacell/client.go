@@ -6,6 +6,8 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -227,8 +229,28 @@ func (c *Client) SetTokens(access, refresh, handshake, userID, username string) 
 
 func (c *Client) SetBiometricSecret(secret string) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.biometricSecret = secret
+	storage := c.storage
+	var data *SessionData
+	if c.accessToken != "" {
+		data = &SessionData{
+			AccessToken:     c.accessToken,
+			RefreshToken:    c.refreshToken,
+			HandshakeToken:  c.handshakeToken,
+			UserID:          FlexString(c.userID),
+			Username:        c.username,
+			Phone:           c.phone,
+			DeviceID:        c.deviceID,
+			BiometricSecret: c.biometricSecret,
+			Language:        c.language,
+			LastRefresh:     c.lastRefresh,
+		}
+	}
+	c.mu.Unlock()
+
+	if storage != nil && data != nil {
+		_ = storage.SaveSession(context.Background(), data)
+	}
 }
 
 func (c *Client) BiometricSecret() string {
@@ -277,6 +299,12 @@ func (c *Client) GetTokens() (access, refresh, handshake, userID, username strin
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.accessToken, c.refreshToken, c.handshakeToken, c.userID, c.username
+}
+
+func (c *Client) AccessToken() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.accessToken
 }
 
 func (c *Client) DeviceID() string {
@@ -332,11 +360,57 @@ func (c *Client) applyHeaders(req *http.Request) {
 	}
 }
 
+func parseJWTExpiration(token string) time.Time {
+	parts := strings.Split(token, ".")
+	if len(parts) < 2 {
+		return time.Time{}
+	}
+	payloadSegment := parts[1]
+	decoded, err := base64.RawURLEncoding.DecodeString(payloadSegment)
+	if err != nil {
+		padLen := (4 - len(payloadSegment)%4) % 4
+		decoded, err = base64.URLEncoding.DecodeString(payloadSegment + strings.Repeat("=", padLen))
+		if err != nil {
+			return time.Time{}
+		}
+	}
+	var claims struct {
+		Exp int64 `json:"exp"`
+	}
+	if err := json.Unmarshal(decoded, &claims); err != nil || claims.Exp <= 0 {
+		return time.Time{}
+	}
+	return time.Unix(claims.Exp, 0)
+}
+
+func (c *Client) TokenExpiration() time.Time {
+	c.mu.RLock()
+	tok := c.accessToken
+	c.mu.RUnlock()
+	return parseJWTExpiration(tok)
+}
+
 func (c *Client) DoRequest(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
 	return c.doRequest(ctx, method, path, body)
 }
 
 func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	isAuthPath := strings.HasPrefix(path, "/api/v1/validate") || strings.HasPrefix(path, "/api/v1/login") || strings.HasPrefix(path, "/api/v1/smsvalidation") || strings.HasPrefix(path, "/api/v1/biometrics/do-login") || strings.HasPrefix(path, "/api/v1/biometrics/register")
+
+	// Proactively refresh token if close to expiry (< 2 hours) before hitting 401
+	if !isAuthPath {
+		c.mu.RLock()
+		tok := c.accessToken
+		ref := c.refreshToken
+		c.mu.RUnlock()
+		if tok != "" && ref != "" {
+			exp := parseJWTExpiration(tok)
+			if !exp.IsZero() && time.Until(exp) < 2*time.Hour {
+				_ = c.RefreshToken(ctx)
+			}
+		}
+	}
+
 	hosts := []string{c.baseURL}
 	if c.baseURL == defaultBaseURL || c.baseURL == "https://odpapp.asiacell.com" {
 		altHost := "https://odpapp.asiacell.com"

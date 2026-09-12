@@ -180,10 +180,11 @@
 | # | دالة / واجهة Go SDK | نمط الاستخدام | الوصف الفني والمعماري |
 | :---: | :--- | :--- | :--- |
 | **S1** | `client.RefreshSession(ctx)` | تجديد ذكي ثلاثي الطبقات | تجديد متسلسل يبدأ بالتوكن (`/api/v1/validate`) ثم ينتقل تلقائياً لتسجيل الدخول البيومتري الصامت (`/api/v1/biometrics/do-login`) عند انتهاء الجلسة |
-| **S2** | `client.StartKeepAlive(ctx, interval)` | نبض دوري خلفي (Heartbeat) | تشغيل مؤقت خلفي (Goroutine Ticker) كل 15 دقيقة لإبقاء الجلسة نشطة ومراقبة كشف الحساب وإطلاق `OnCDRExpired` |
-| **S3** | `asiacell.NewFileSessionStorage(path)` | تخزين ذري دائم للجلسة | حفظ ذري (Atomic Write عبر ملف مؤقت) لبيانات الجلسة (Tokens, DeviceID, Phone, BiometricSecret) لاسترجاعها عند الإقلاع |
-| **S4** | `asiacell.NewMemorySessionStorage()` | تخزين مؤقت بالذاكرة | تخزين آمن لبيانات الجلسة في الذاكرة (Thread-safe) للأنظمة والحاويات عديمة الحالة (Stateless) |
-| **S5** | `client.ExportSession()` / `ImportSession()` | تصدير واستيراد الجلسة | تصدير واستيراد كائن الجلسة المشفر كـ JSON وتمريره بين السيرفرات أو البوتات المختلفة بسلاسة |
+| **S2** | `client.StartKeepAlive(ctx, [interval])` | نبض دوري خلفي ذكي (Heartbeat) | تشغيل مؤقت خلفي (افتراضياً كل 5 دقائق) يفحص تجديد التوكن استباقياً (`< 2h`)، ويفحص الملف الشخصي، ويبقي سجل كشف الحساب حياً ونشطاً، ويطلق `OnCDRExpired` فوراً |
+| **S3** | `client.TokenExpiration()` | وقت انتهاء صلاحية التوكن | قراءة وقت انتهاء JWT Access Token بدقة لإجراء التجديد الاستباقي التلقائي قبل بلوغ مهلة 24 ساعة وسقوط صلاحية 2FA |
+| **S4** | `asiacell.NewFileSessionStorage(path)` | تخزين ذري دائم للجلسة | حفظ ذري (Atomic Write عبر ملف مؤقت) لبيانات الجلسة (Tokens, DeviceID, Phone, BiometricSecret) لاسترجاعها عند الإقلاع |
+| **S5** | `asiacell.NewMemorySessionStorage()` | تخزين مؤقت بالذاكرة | تخزين آمن لبيانات الجلسة في الذاكرة (Thread-safe) للأنظمة والحاويات عديمة الحالة (Stateless) |
+| **S6** | `client.ExportSession()` / `ImportSession()` | تصدير واستيراد الجلسة | تصدير واستيراد كائن الجلسة المشفر كـ JSON وتمريره بين السيرفرات أو البوتات المختلفة بسلاسة |
 
 ---
 
@@ -516,14 +517,20 @@ POST /api/v1/biometrics/do-login
 
 ---
 
-#### 5. محرك النبض الدوري الخلفي (Keep-Alive Heartbeat Daemon):
+#### 5. محرك النبض الدوري الخلفي والتجديد الاستباقي (Keep-Alive & Proactive Token Renewal):
 تشغيل حارس الجلسة في الخلفية عبر استدعاء:
 ```go
-client.StartKeepAlive(ctx, 15*time.Minute)
+// نبض افتراضي كل 5 دقائق (أو تمرير فترة مخصصة)
+pulseChan := client.StartKeepAlive(ctx, 5*time.Minute)
 ```
-- يرسل نبضات دورية منتظمة (Heartbeat Pulses) كل 15 دقيقة لفحص حالة الملف الشخصي (`GET /api/v1/profile`) وسجل كشف الحساب (`GET /api/v1/cdr/detail?type=btransfer&page=1&limit=1`).
-- يضمن منع خمول الجلسة على السيرفر (Keep Session Warm).
-- يراقب صلاحية كشف الحساب، وعند انتهائها يقوم بإطلاق هوك `OnCDRExpired()` فوراً لإشعار النظام أو إرسال تنبيه لإعادة تفعيل التحقق الثنائي (2FA).
+- **التجديد الاستباقي للتوكن (Proactive Renewal)**: 
+  - تبلغ صلاحية الـ `access_token` في سيرفرات آسياسيل 24 ساعة بالضبط، بينما يمتد `refresh_token` إلى **60 يوماً**.
+  - معظم البوتات تنتظر حدوث خطأ `401 Unauthorized` لتجديد الجلسة تفاعلياً (Reactively)، مما يتسبب بإسقاط بوابة آسياسيل لصلاحية التحقق الثنائي (2FA) لكشف الحساب فور انتهاء الجلسة.
+  - محرك Go SDK يفحص وقت انتهاء التوكن تلقائياً (`TokenExpiration()`) ويقوم بتجديد التوكن استباقياً (`POST /api/v1/validate`) عندما يتبقى أقل من ساعتين على انتهائه، فلا يواجه العميل كود 401 أبداً وتظل ترقية 2FA لكشف الحساب فعالة ومستمرة لأسابيع وشهور!
+- **نبض كل 5 دقائق (5m Warm-up Pulse)**:
+  - يرسل نبضات دورية منتظمة كل 5 دقائق لفحص الملف الشخصي (`GET /api/v1/profile`) وتدفئة سجل كشف الحساب (`GET /api/v1/cdr/detail?type=btransfer&page=1&limit=1`).
+  - يحمي من مهلة خمول السيرفر (Inactivity Timeout المقدرة بـ 10-15 دقيقة) وتلاشي اتصالات TCP/NAT.
+  - يراقب حالة كشف الحساب، وعند أي تعثر أو انتهاء يطلق هوك `OnCDRExpired()` فوراً لإشعار النظام أو بدء إعادة التفعيل.
 
 ---
 

@@ -2,7 +2,9 @@ package asiacell
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -561,3 +563,76 @@ func TestSessionStorage_FileAndMemory(t *testing.T) {
 		}
 	})
 }
+
+func TestProactiveTokenRefresh(t *testing.T) {
+	ctx := context.Background()
+
+	// 1. Test JWT expiration parser with the real token from Asiacell session
+	tok := "eyJhbGciOiJIUzUxMiJ9.eyJzZXNzaW9uSUQiOiJhMmY1MWU1NC1mMzM1LTQxYWEtOGE2Ny0wM2VhOGE4N2FhZmYiLCJleHAiOjE3ODkyOTI5NDV9.TdF2wMYW90b-FC7fYhDLAx7SsFDDFOJ71ORVHnKlv2gn9rmIljQaU7nd1ALqy-jMh2i0TNkrLJ9IqwPOCSfiVw"
+	exp := parseJWTExpiration(tok)
+	if exp.IsZero() {
+		t.Fatalf("expected non-zero expiration from valid JWT token")
+	}
+	if exp.Unix() != 1789292945 {
+		t.Fatalf("expected exp 1789292945, got %d", exp.Unix())
+	}
+
+	// 2. Test proactive refresh trigger when token is expiring soon
+	var refreshCalled int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/validate":
+			refreshCalled++
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(SMSValidationResponse{
+				Success:      true,
+				AccessToken:  "new-proactive-access-token",
+				RefreshToken: "new-proactive-refresh-token",
+			})
+		case "/api/v1/profile":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"success": true,
+				"data":    map[string]any{},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	// Create an expired/soon-to-expire token: exp = now + 10 minutes (< 2 hours)
+	expSoon := time.Now().Add(10 * time.Minute).Unix()
+	claimsJSON := fmt.Sprintf(`{"sessionID":"test-sess","exp":%d}`, expSoon)
+	payloadBase64 := base64.RawURLEncoding.EncodeToString([]byte(claimsJSON))
+	soonExpiringToken := "eyJhbGciOiJIUzUxMiJ9." + payloadBase64 + ".sig"
+
+	client, err := NewClient(
+		WithTokens(soonExpiringToken, "existing-refresh-token"),
+	)
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+	client.baseURL = server.URL
+
+	// Before request, TokenExpiration should report the soonExpiringToken
+	if client.TokenExpiration().Unix() != expSoon {
+		t.Fatalf("expected client TokenExpiration to match expSoon")
+	}
+
+	// Calling GetProfile should trigger proactive refresh BEFORE sending the request
+	_, err = client.GetProfile(ctx)
+	if err != nil {
+		t.Fatalf("GetProfile failed: %v", err)
+	}
+
+	if refreshCalled != 1 {
+		t.Fatalf("expected proactive refresh to be called 1 time, got %d", refreshCalled)
+	}
+
+	// Token should now be the new one
+	if client.AccessToken() != "new-proactive-access-token" {
+		t.Fatalf("expected updated access token, got %s", client.AccessToken())
+	}
+}
+

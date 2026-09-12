@@ -1150,11 +1150,11 @@ func (c *Client) LoadFromStorage(ctx context.Context, storage SessionStorage) er
 	return c.ImportSession(data)
 }
 
-// StartKeepAlive starts a background keep-alive goroutine that pulses Asiacell servers at the given interval (default 15 minutes).
-// Each pulse queries the user profile and fetches CDR transfer history to keep the CDR session warm and active.
+// StartKeepAlive starts a background keep-alive goroutine that pulses Asiacell servers at the given interval (default 5 minutes).
+// Each pulse proactively checks for token renewal, queries user profile, and fetches CDR transfer history to keep the CDR session warm and active.
 // It returns a channel emitting KeepAlivePulse events and stops cleanly when ctx is cancelled.
 func (c *Client) StartKeepAlive(ctx context.Context, interval ...time.Duration) <-chan KeepAlivePulse {
-	pulseInterval := 15 * time.Minute
+	pulseInterval := 5 * time.Minute
 	if len(interval) > 0 && interval[0] > 0 {
 		pulseInterval = interval[0]
 	}
@@ -1179,6 +1179,18 @@ func (c *Client) StartKeepAlive(ctx context.Context, interval ...time.Duration) 
 			case t := <-ticker.C:
 				pulse := KeepAlivePulse{
 					Timestamp: t,
+				}
+
+				// Proactively refresh token if close to expiry (< 2 hours)
+				c.mu.RLock()
+				tok := c.accessToken
+				ref := c.refreshToken
+				c.mu.RUnlock()
+				if tok != "" && ref != "" {
+					exp := parseJWTExpiration(tok)
+					if !exp.IsZero() && time.Until(exp) < 2*time.Hour {
+						_ = c.RefreshToken(ctx)
+					}
 				}
 
 				// 1. Check profile to keep main token alive

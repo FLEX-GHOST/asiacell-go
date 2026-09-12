@@ -40,9 +40,12 @@ func main() {
 	}
 
 	fmt.Println("\n1. Session Restored Successfully:")
-	fmt.Printf("   • Phone Number    : %s\n", client.Phone())
-	fmt.Printf("   • Device ID (UUID): %s\n", client.DeviceID())
-	fmt.Printf("   • Biometric Secret: %s\n", client.BiometricSecret())
+	fmt.Printf("   • Phone Number       : %s\n", client.Phone())
+	fmt.Printf("   • Device ID (UUID)   : %s\n", client.DeviceID())
+	fmt.Printf("   • Biometric Secret   : %s\n", client.BiometricSecret())
+	if exp := client.TokenExpiration(); !exp.IsZero() {
+		fmt.Printf("   • Access Token Expiry: %s (in %v - proactive renewal triggers at < 2h)\n", exp.Format("2006-01-02 15:04:05"), time.Until(exp).Round(time.Minute))
+	}
 
 	// 2. Test 3-Layer Authentication:
 	// If Access Token is expired, client automatically tries:
